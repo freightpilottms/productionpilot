@@ -1151,6 +1151,16 @@ export default function ProductionPilot() {
 
   const activeNav = navItems.find((item) => item.id === activeView);
   const viewTitle = activeNav ? t(activeNav.labelKey) : t("control");
+  const formattedDate = now.toLocaleDateString(languageLocales[language], {
+    day: "2-digit",
+    month: "short",
+    weekday: "long"
+  });
+  const compactDate = now.toLocaleDateString(languageLocales[language], {
+    day: "2-digit",
+    month: "short",
+    weekday: "short"
+  });
 
   return (
     <main className="app-shell">
@@ -1161,7 +1171,7 @@ export default function ProductionPilot() {
             className="brand-logo"
             src="/test.png"
           />
-          <span>Production management OS</span>
+          <span>Production Management Systems</span>
         </div>
         <nav className="side-nav">
           {navItems.map((item) => {
@@ -1202,7 +1212,7 @@ export default function ProductionPilot() {
               src="/test.png"
             />
             <div>
-              <p>{now.toLocaleDateString(languageLocales[language], { weekday: "long", day: "2-digit", month: "short" })}</p>
+              <p className="topbar-date">{formattedDate}</p>
               <h2>{viewTitle}</h2>
             </div>
           </div>
@@ -1232,10 +1242,19 @@ export default function ProductionPilot() {
             <IconButton onClick={createNewOrder} title={t("newOrder")}>
               <Plus size={18} />
             </IconButton>
-            <IconButton onClick={() => window.print()} title={t("printView")}>
+            <IconButton
+              className="print-action"
+              onClick={() => window.print()}
+              title={t("printView")}
+            >
               <Printer size={18} />
             </IconButton>
-            <IconButton onClick={exportData} title={t("exportData")}>
+            <span className="mobile-date-chip">{compactDate}</span>
+            <IconButton
+              className="download-action"
+              onClick={exportData}
+              title={t("exportData")}
+            >
               <Download size={18} />
             </IconButton>
           </div>

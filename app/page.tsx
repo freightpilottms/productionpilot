@@ -20,8 +20,7 @@ import {
   Gauge,
   HardHat,
   Home,
-  LockKeyhole,
-  LogOut,
+  Menu,
   Monitor,
   Package,
   Plus,
@@ -42,11 +41,21 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent, ReactNode } from "react";
+import { ProductionRenderer } from "@/components/ProductionRenderer";
+import { legacyCatalog } from "@/lib/legacyCatalog";
+import {
+  languages,
+  makeTranslator,
+  stateTranslations,
+  type Language,
+  type TranslationKey
+} from "@/lib/i18n";
 
 type View =
   | "dashboard"
   | "orders"
   | "monitor"
+  | "render"
   | "documents"
   | "stock"
   | "finance"
@@ -252,15 +261,16 @@ const users: User[] = [
   { name: "EDINA", role: "Operator" }
 ];
 
-const navItems: Array<{ id: View; label: string; icon: LucideIcon }> = [
-  { id: "dashboard", label: "Control", icon: Home },
-  { id: "orders", label: "Orders", icon: ClipboardList },
-  { id: "monitor", label: "Monitor", icon: Monitor },
-  { id: "documents", label: "Docs", icon: FileText },
-  { id: "stock", label: "Stock", icon: Boxes },
-  { id: "finance", label: "Finance", icon: Wallet },
-  { id: "workers", label: "Workers", icon: Users },
-  { id: "settings", label: "Deploy", icon: Settings }
+const navItems: Array<{ id: View; labelKey: TranslationKey; icon: LucideIcon }> = [
+  { id: "dashboard", labelKey: "control", icon: Home },
+  { id: "orders", labelKey: "orders", icon: ClipboardList },
+  { id: "monitor", labelKey: "monitor", icon: Monitor },
+  { id: "render", labelKey: "render", icon: Gauge },
+  { id: "documents", labelKey: "documents", icon: FileText },
+  { id: "stock", labelKey: "stock", icon: Boxes },
+  { id: "finance", labelKey: "finance", icon: Wallet },
+  { id: "workers", labelKey: "workers", icon: Users },
+  { id: "settings", labelKey: "deploy", icon: Settings }
 ];
 
 const currency = new Intl.NumberFormat("en-US", {
@@ -268,6 +278,14 @@ const currency = new Intl.NumberFormat("en-US", {
   currency: "BAM",
   maximumFractionDigits: 0
 });
+
+const languageLocales: Record<Language, string> = {
+  bhs: "bs-BA",
+  de: "de-DE",
+  it: "it-IT",
+  es: "es-ES",
+  en: "en-US"
+};
 
 function toDateInput(date: Date) {
   return date.toISOString().slice(0, 10);
@@ -385,6 +403,14 @@ function daysUntil(dateInput: string) {
   return Math.ceil((target.getTime() - today.getTime()) / 86400000);
 }
 
+function nextOrderId(orders: Order[]) {
+  const numbers = orders
+    .map((order) => Number(order.id.replace(/\D/g, "")))
+    .filter((value) => Number.isFinite(value));
+  const next = (numbers.length ? Math.max(...numbers) : 24000) + 1;
+  return formatOrderId(String(next));
+}
+
 function documentCoverage(order: Order) {
   const ready = documentKeys.filter((key) => order.documents[key]?.fileName).length;
   return Math.round((ready / documentKeys.length) * 100);
@@ -431,10 +457,16 @@ function IconButton({
   );
 }
 
-function StatusPill({ state }: { state: ProductionState }) {
+function StatusPill({
+  state,
+  language = "bhs"
+}: {
+  state: ProductionState;
+  language?: Language;
+}) {
   return (
     <span className={classNames("status-pill", stateMeta[state].tone)}>
-      {state}
+      {stateTranslations[language][state] ?? state}
     </span>
   );
 }
@@ -743,10 +775,9 @@ const seedWorkers: WorkerShift[] = [
 ];
 
 export default function ProductionPilot() {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [loginUser, setLoginUser] = useState(users[0].name);
-  const [loginPassword, setLoginPassword] = useState("");
-  const [loginError, setLoginError] = useState("");
+  const [language, setLanguage] = useState<Language>("bhs");
+  const t = useMemo(() => makeTranslator(language), [language]);
+  const currentUser = users[0];
   const [activeView, setActiveView] = useState<View>("dashboard");
   const [orders, setOrders] = useState<Order[]>(seedOrders);
   const [stock, setStock] = useState<StockItem[]>(seedStock);
@@ -756,7 +787,10 @@ export default function ProductionPilot() {
   const [form, setForm] = useState<OrderForm>(() => createEmptyForm());
   const [query, setQuery] = useState("");
   const [stateFilter, setStateFilter] = useState<"ALL" | ProductionState>("ALL");
-  const [notice, setNotice] = useState("Ready for production planning.");
+  const [navMenuOpen, setNavMenuOpen] = useState(false);
+  const [notice, setNotice] = useState<string>(
+    `${users[0].name} - ${t("signedIn")} (${users[0].role}).`
+  );
   const [hydrated, setHydrated] = useState(false);
   const [now, setNow] = useState(new Date());
 
@@ -855,25 +889,6 @@ export default function ProductionPilot() {
     );
   }, [ledger]);
 
-  function handleLogin(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const user = users.find((item) => item.name === loginUser);
-    if (!user || loginPassword.trim().length === 0) {
-      setLoginError("Choose a user and enter a password to continue.");
-      return;
-    }
-    setCurrentUser(user);
-    setLoginError("");
-    setNotice(`${user.name} signed in as ${user.role}.`);
-    const firstOrder = orderedOrders[0];
-    if (firstOrder) {
-      setSelectedOrderId(firstOrder.id);
-      setForm(orderToForm(firstOrder));
-    } else {
-      setForm(createEmptyForm(user.name));
-    }
-  }
-
   function selectOrder(order: Order) {
     setSelectedOrderId(order.id);
     setForm(orderToForm(order));
@@ -886,7 +901,6 @@ export default function ProductionPilot() {
 
   function saveOrder(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
-    if (!currentUser) return;
 
     const normalizedId = formatOrderId(form.id);
     if (!normalizedId || !form.client.trim() || !form.requester.trim()) {
@@ -917,15 +931,50 @@ export default function ProductionPilot() {
   }
 
   function createNewOrder() {
-    if (!currentUser) return;
     setSelectedOrderId("");
     setForm(createEmptyForm(currentUser.name));
     setActiveView("orders");
-    setNotice("New order draft is ready.");
+    setNotice(`${t("newOrder")} draft.`);
+  }
+
+  function createOrderFromRender(payload: {
+    requester: string;
+    series: string;
+    profile: string;
+    glass: string;
+    panel: string;
+    colorInt: string;
+    colorExt: string;
+    quantity: number;
+    note: string;
+  }) {
+    const id = nextOrderId(orders);
+    const next = formToOrder(
+      {
+        ...createEmptyForm(currentUser.name),
+        id,
+        client: "RENDER STUDIO",
+        requester: payload.requester,
+        series: payload.series,
+        profile: payload.profile,
+        glass: payload.glass,
+        panel: payload.panel,
+        colorInt: payload.colorInt,
+        colorExt: payload.colorExt,
+        quantity: String(payload.quantity),
+        note: payload.note
+      },
+      currentUser.name
+    );
+    setOrders((previous) => [next, ...previous]);
+    setSelectedOrderId(next.id);
+    setForm(orderToForm(next));
+    setActiveView("orders");
+    setNotice(`${t("renderProduction")} -> ${t("orders")}: ${next.id}.`);
   }
 
   function deleteSelectedOrder() {
-    if (!currentUser || currentUser.role !== "Admin" || !selectedOrderId) {
+    if (currentUser.role !== "Admin" || !selectedOrderId) {
       setNotice("Only an admin can delete orders.");
       return;
     }
@@ -948,7 +997,7 @@ export default function ProductionPilot() {
         if (order.id !== orderId) return order;
         const next = formToOrder(
           { ...orderToForm(order), state },
-          currentUser?.name ?? order.userName,
+          currentUser.name,
           order
         );
         return next;
@@ -1100,58 +1149,8 @@ export default function ProductionPilot() {
     setNotice("Demo data restored.");
   }
 
-  if (!currentUser) {
-    return (
-      <main className="login-screen">
-        <section className="login-panel" aria-labelledby="login-title">
-          <div className="login-brand">
-            <div className="brand-mark">
-              <Factory size={28} />
-            </div>
-            <div>
-              <p>ProductionPilot</p>
-              <h1 id="login-title">Factory command cockpit</h1>
-            </div>
-          </div>
-          <form className="login-form" onSubmit={handleLogin}>
-            <label>
-              <span>User</span>
-              <select
-                value={loginUser}
-                onChange={(event) => setLoginUser(event.target.value)}
-              >
-                {users.map((user) => (
-                  <option key={user.name} value={user.name}>
-                    {user.name} - {user.role}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>Password</span>
-              <input
-                autoComplete="current-password"
-                onChange={(event) => setLoginPassword(event.target.value)}
-                type="password"
-                value={loginPassword}
-              />
-            </label>
-            {loginError ? <p className="form-error">{loginError}</p> : null}
-            <button className="primary-action" type="submit">
-              <LockKeyhole size={18} />
-              Enter cockpit
-            </button>
-          </form>
-          <div className="login-footer">
-            <span>Legacy WinForms logic rebuilt as a browser-first deployment.</span>
-            <ShieldCheck size={18} />
-          </div>
-        </section>
-      </main>
-    );
-  }
-
-  const viewTitle = navItems.find((item) => item.id === activeView)?.label ?? "Control";
+  const activeNav = navItems.find((item) => item.id === activeView);
+  const viewTitle = activeNav ? t(activeNav.labelKey) : t("control");
 
   return (
     <main className="app-shell">
@@ -1176,13 +1175,13 @@ export default function ProductionPilot() {
                 type="button"
               >
                 <Icon size={18} />
-                <span>{item.label}</span>
+                <span>{t(item.labelKey)}</span>
               </button>
             );
           })}
         </nav>
         <div className="sidebar-status">
-          <span>Signed in</span>
+          <span>{t("signedIn")}</span>
           <strong>{currentUser.name}</strong>
           <small>{currentUser.role}</small>
         </div>
@@ -1190,40 +1189,76 @@ export default function ProductionPilot() {
 
       <section className="workspace">
         <header className="topbar">
-          <div>
-            <p>{now.toLocaleDateString("en-GB", { weekday: "long", day: "2-digit", month: "short" })}</p>
-            <h2>{viewTitle}</h2>
+          <div className="topbar-title">
+            <IconButton
+              className="mobile-menu-button"
+              onClick={() => setNavMenuOpen((open) => !open)}
+              title="Menu"
+            >
+              <Menu size={18} />
+            </IconButton>
+            <div>
+              <p>{now.toLocaleDateString(languageLocales[language], { weekday: "long", day: "2-digit", month: "short" })}</p>
+              <h2>{viewTitle}</h2>
+            </div>
           </div>
           <div className="topbar-actions">
             <div className="search-box">
               <Search size={18} />
               <input
-                aria-label="Search orders"
+                aria-label={t("search")}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search orders"
+                placeholder={t("search")}
                 value={query}
               />
             </div>
-            <IconButton onClick={createNewOrder} title="New order">
+            <label className="language-switcher" title={t("language")}>
+              <select
+                aria-label={t("language")}
+                onChange={(event) => setLanguage(event.target.value as Language)}
+                value={language}
+              >
+                {languages.map((item) => (
+                  <option key={item.code} value={item.code}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <IconButton onClick={createNewOrder} title={t("newOrder")}>
               <Plus size={18} />
             </IconButton>
-            <IconButton onClick={() => window.print()} title="Print view">
+            <IconButton onClick={() => window.print()} title={t("printView")}>
               <Printer size={18} />
             </IconButton>
-            <IconButton onClick={exportData} title="Export data">
+            <IconButton onClick={exportData} title={t("exportData")}>
               <Download size={18} />
-            </IconButton>
-            <IconButton
-              onClick={() => {
-                setCurrentUser(null);
-                setLoginPassword("");
-              }}
-              title="Sign out"
-            >
-              <LogOut size={18} />
             </IconButton>
           </div>
         </header>
+
+        <nav
+          aria-label="Compact navigation"
+          className={classNames("mobile-nav-menu", navMenuOpen && "open")}
+        >
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                className={classNames(activeView === item.id && "active")}
+                key={item.id}
+                onClick={() => {
+                  setActiveView(item.id);
+                  setNavMenuOpen(false);
+                }}
+                type="button"
+              >
+                <Icon size={18} />
+                <span>{t(item.labelKey)}</span>
+              </button>
+            );
+          })}
+        </nav>
 
         <div className="notice-bar">
           <Bell size={16} />
@@ -1233,6 +1268,7 @@ export default function ProductionPilot() {
         {activeView === "dashboard" ? renderDashboard() : null}
         {activeView === "orders" ? renderOrders() : null}
         {activeView === "monitor" ? renderMonitor() : null}
+        {activeView === "render" ? renderProductionRender() : null}
         {activeView === "documents" ? renderDocuments() : null}
         {activeView === "stock" ? renderStock() : null}
         {activeView === "finance" ? renderFinance() : null}
@@ -1253,25 +1289,25 @@ export default function ProductionPilot() {
         <div className="metric-grid">
           <article className="metric-card accent-green">
             <Factory size={22} />
-            <span>Total units</span>
+            <span>{t("totalUnits")}</span>
             <strong>{stats.totalQty}</strong>
-            <small>{orders.length} active orders</small>
+            <small>{orders.length} {t("activeOrders")}</small>
           </article>
           <article className="metric-card accent-amber">
             <Gauge size={22} />
-            <span>In production</span>
+            <span>{t("inProduction")}</span>
             <strong>{stats.groupQty.Build}</strong>
-            <small>{stats.activeHours.toFixed(1)} logged hours</small>
+            <small>{stats.activeHours.toFixed(1)} {t("loggedHours")}</small>
           </article>
           <article className="metric-card accent-blue">
             <FileText size={22} />
-            <span>Doc coverage</span>
+            <span>{t("docCoverage")}</span>
             <strong>{stats.avgDocs}%</strong>
             <small>Across all order packs</small>
           </article>
           <article className="metric-card accent-red">
             <AlertTriangle size={22} />
-            <span>Due pressure</span>
+            <span>{t("duePressure")}</span>
             <strong>{stats.dueSoon}</strong>
             <small>Orders due in 3 days</small>
           </article>
@@ -1282,7 +1318,7 @@ export default function ProductionPilot() {
             <div className="panel-heading">
               <div>
                 <p>Priority flow</p>
-                <h3>Production pipeline</h3>
+                <h3>{t("productionPipeline")}</h3>
               </div>
               <Activity size={20} />
             </div>
@@ -1313,7 +1349,7 @@ export default function ProductionPilot() {
             <div className="panel-heading">
               <div>
                 <p>Attention</p>
-                <h3>Next moves</h3>
+                <h3>{t("nextMoves")}</h3>
               </div>
               <CalendarClock size={20} />
             </div>
@@ -1329,7 +1365,7 @@ export default function ProductionPilot() {
                     <strong>{order.id}</strong>
                     <small>{order.client}</small>
                   </span>
-                  <StatusPill state={order.state} />
+                  <StatusPill language={language} state={order.state} />
                   <em>{daysUntil(order.deliveryDate)}d</em>
                 </button>
               ))}
@@ -1340,7 +1376,7 @@ export default function ProductionPilot() {
             <div className="panel-heading">
               <div>
                 <p>Money</p>
-                <h3>Open ledger</h3>
+                <h3>{t("openLedger")}</h3>
               </div>
               <Wallet size={20} />
             </div>
@@ -1363,7 +1399,7 @@ export default function ProductionPilot() {
           <section className="panel wide-panel">
             <div className="panel-heading">
               <div>
-                <p>Shop floor</p>
+                <p>{t("shopFloor")}</p>
                 <h3>Live worker load</h3>
               </div>
               <HardHat size={20} />
@@ -1394,7 +1430,7 @@ export default function ProductionPilot() {
         <div className="orders-main">
           <div className="table-toolbar">
             <div>
-              <h3>Order board</h3>
+              <h3>{t("orderBoard")}</h3>
               <p>{filteredOrders.length} rows sorted by production priority</p>
             </div>
             <label className="select-filter">
@@ -1405,10 +1441,10 @@ export default function ProductionPilot() {
                 }
                 value={stateFilter}
               >
-                <option value="ALL">All states</option>
+                <option value="ALL">{t("allStates")}</option>
                 {productionStates.map((state) => (
                   <option key={state} value={state}>
-                    {state}
+                    {stateTranslations[language][state] ?? state}
                   </option>
                 ))}
               </select>
@@ -1452,7 +1488,7 @@ export default function ProductionPilot() {
                     <td>{order.series}</td>
                     <td>{order.quantity}</td>
                     <td>
-                      <StatusPill state={order.state} />
+                      <StatusPill language={language} state={order.state} />
                     </td>
                     <td>
                       <span className={classNames(daysUntil(order.deliveryDate) <= 2 && "hot-date")}>
@@ -1475,10 +1511,10 @@ export default function ProductionPilot() {
         <form className="order-editor" onSubmit={saveOrder}>
           <div className="editor-heading">
             <div>
-              <p>{selectedOrder ? "Selected order" : "New order"}</p>
+              <p>{selectedOrder ? t("selectedOrder") : t("newOrder")}</p>
               <h3>{form.id || "Draft"}</h3>
             </div>
-            <StatusPill state={form.state} />
+            <StatusPill language={language} state={form.state} />
           </div>
 
           <div className="form-grid">
@@ -1508,16 +1544,30 @@ export default function ProductionPilot() {
               />
             </Field>
             <Field label="Series">
-              <input
-                onChange={(event) => updateForm("series", event.target.value.toUpperCase())}
+              <select
+                onChange={(event) => updateForm("series", event.target.value)}
                 value={form.series}
-              />
+              >
+                <option value="">-</option>
+                {legacyCatalog.productSeries.map((series) => (
+                  <option key={series} value={series}>
+                    {series}
+                  </option>
+                ))}
+              </select>
             </Field>
             <Field label="Profile">
-              <input
+              <select
                 onChange={(event) => updateForm("profile", event.target.value)}
                 value={form.profile}
-              />
+              >
+                <option value="">-</option>
+                {legacyCatalog.materialStatuses.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
             </Field>
             <Field label="Quantity">
               <input
@@ -1534,7 +1584,7 @@ export default function ProductionPilot() {
               >
                 {productionStates.map((state) => (
                   <option key={state} value={state}>
-                    {state}
+                    {stateTranslations[language][state] ?? state}
                   </option>
                 ))}
               </select>
@@ -1563,43 +1613,85 @@ export default function ProductionPilot() {
               />
             </Field>
             <Field label="User">
-              <input readOnly value={currentUser?.name ?? ""} />
+              <input readOnly value={currentUser.name} />
             </Field>
             <Field label="Glass">
-              <input
+              <select
                 onChange={(event) => updateForm("glass", event.target.value)}
                 value={form.glass}
-              />
+              >
+                <option value="">-</option>
+                {legacyCatalog.glassStatuses.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
             </Field>
             <Field label="Hardware">
-              <input
+              <select
                 onChange={(event) => updateForm("hardware", event.target.value)}
                 value={form.hardware}
-              />
+              >
+                <option value="">-</option>
+                {legacyCatalog.materialStatuses.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
             </Field>
             <Field label="Color in">
-              <input
+              <select
                 onChange={(event) => updateForm("colorInt", event.target.value)}
                 value={form.colorInt}
-              />
+              >
+                <option value="">-</option>
+                {legacyCatalog.colors.map((color) => (
+                  <option key={color} value={color}>
+                    {color}
+                  </option>
+                ))}
+              </select>
             </Field>
             <Field label="Color out">
-              <input
+              <select
                 onChange={(event) => updateForm("colorExt", event.target.value)}
                 value={form.colorExt}
-              />
+              >
+                <option value="">-</option>
+                {legacyCatalog.colors.map((color) => (
+                  <option key={color} value={color}>
+                    {color}
+                  </option>
+                ))}
+              </select>
             </Field>
             <Field label="Reinforcement">
-              <input
+              <select
                 onChange={(event) => updateForm("reinforcement", event.target.value)}
                 value={form.reinforcement}
-              />
+              >
+                <option value="">-</option>
+                {legacyCatalog.materialStatuses.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
             </Field>
             <Field label="Panel">
-              <input
+              <select
                 onChange={(event) => updateForm("panel", event.target.value)}
                 value={form.panel}
-              />
+              >
+                <option value="">-</option>
+                {legacyCatalog.panelStatuses.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
             </Field>
             <Field label="Driver">
               <input
@@ -1644,20 +1736,20 @@ export default function ProductionPilot() {
           <div className="editor-actions">
             <button className="primary-action" type="submit">
               <Save size={17} />
-              Save
+              {t("save")}
             </button>
             <button className="soft-action" onClick={createNewOrder} type="button">
               <Undo2 size={17} />
-              Reset
+              {t("reset")}
             </button>
             <button
               className="danger-action"
-              disabled={currentUser?.role !== "Admin" || !selectedOrderId}
+              disabled={currentUser.role !== "Admin" || !selectedOrderId}
               onClick={deleteSelectedOrder}
               type="button"
             >
               <Trash2 size={17} />
-              Delete
+              {t("delete")}
             </button>
           </div>
         </form>
@@ -1718,6 +1810,16 @@ export default function ProductionPilot() {
           </table>
         </div>
       </section>
+    );
+  }
+
+  function renderProductionRender() {
+    return (
+      <ProductionRenderer
+        language={language}
+        onCreateOrder={createOrderFromRender}
+        stock={stock}
+      />
     );
   }
 
@@ -1995,7 +2097,7 @@ export default function ProductionPilot() {
                 <button className="handoff-row" key={order.id} onClick={() => selectOrder(order)} type="button">
                   <span>{order.id}</span>
                   <strong>{order.profile}</strong>
-                  <StatusPill state={order.state} />
+                  <StatusPill language={language} state={order.state} />
                   <em>{order.productionHours.toFixed(1)}h</em>
                 </button>
               ))}

@@ -41,15 +41,15 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent, ReactNode } from "react";
-import { ProductionRenderer } from "@/components/ProductionRenderer";
-import { legacyCatalog } from "@/lib/legacyCatalog";
+import { ProductionRenderer } from "../components/ProductionRenderer";
+import { legacyCatalog } from "../lib/legacyCatalog";
 import {
   languages,
   makeTranslator,
   stateTranslations,
   type Language,
   type TranslationKey
-} from "@/lib/i18n";
+} from "../lib/i18n";
 
 type View =
   | "dashboard"
@@ -1156,13 +1156,12 @@ export default function ProductionPilot() {
     <main className="app-shell">
       <aside className="sidebar" aria-label="ProductionPilot navigation">
         <div className="brand-block">
-          <div className="brand-mark">
-            <Factory size={24} />
-          </div>
-          <div>
-            <strong>ProductionPilot</strong>
-            <span>SemBuilding OS</span>
-          </div>
+          <img
+            alt="ProductionPilot"
+            className="brand-logo"
+            src="/test.png"
+          />
+          <span>Production management OS</span>
         </div>
         <nav className="side-nav">
           {navItems.map((item) => {
@@ -1197,6 +1196,11 @@ export default function ProductionPilot() {
             >
               <Menu size={18} />
             </IconButton>
+            <img
+              alt="ProductionPilot"
+              className="topbar-logo"
+              src="/test.png"
+            />
             <div>
               <p>{now.toLocaleDateString(languageLocales[language], { weekday: "long", day: "2-digit", month: "short" })}</p>
               <h2>{viewTitle}</h2>

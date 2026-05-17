@@ -1,10 +1,10 @@
 "use client";
 
 import { Box, Check, Factory, Layers, Ruler, Save, SlidersHorizontal } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import * as THREE from "three";
-import { legacyCatalog } from "../lib/legacyCatalog";
-import type { Language } from "../lib/i18n";
+import { useMemo, useState } from "react";
+import type { CSSProperties } from "react";
+import { legacyCatalog } from "../app/_domain/legacyCatalog";
+import type { Language } from "../app/_domain/i18n";
 
 type RenderFamily = "joinery" | "furniture" | "universal";
 
@@ -308,160 +308,32 @@ const copy = {
   }
 } as const;
 
-const colorHex: Record<string, number> = {
-  ANTRAZIT: 0x30343a,
-  "ANTRAZIT U. MAT": 0x25282d,
-  BIANCO: 0xf5f1e7,
-  "BIANCO VENATO": 0xf3efe2,
-  "GOLDEN OAK": 0xb47a38,
-  NUSSBAUM: 0x6c4429,
-  MARONE: 0x5f3924,
-  "PEPER OAK": 0x95826a,
-  RAL8017: 0x3f2d28,
-  RAL9006: 0xb8bec2,
-  RAL9010: 0xf1eee3,
-  RAL9016: 0xf8f8ef,
-  "RUSTIC OAK": 0x8d5d32,
-  SCHWARZBRAUN: 0x211c18,
-  GREZZO: 0xbda27d,
-  "S2500 INTERPON GRIS": 0x8a9090,
-  "IC O50 ICONA SALE": 0xddd7c7
+const colorHex: Record<string, string> = {
+  ANTRAZIT: "#30343a",
+  "ANTRAZIT U. MAT": "#25282d",
+  BIANCO: "#f5f1e7",
+  "BIANCO VENATO": "#f3efe2",
+  "GOLDEN OAK": "#b47a38",
+  NUSSBAUM: "#6c4429",
+  MARONE: "#5f3924",
+  "PEPER OAK": "#95826a",
+  RAL8017: "#3f2d28",
+  RAL9006: "#b8bec2",
+  RAL9010: "#f1eee3",
+  RAL9016: "#f8f8ef",
+  "RUSTIC OAK": "#8d5d32",
+  SCHWARZBRAUN: "#211c18",
+  GREZZO: "#bda27d",
+  "S2500 INTERPON GRIS": "#8a9090",
+  "IC O50 ICONA SALE": "#ddd7c7"
 };
-
-function mmToScene(value: number) {
-  return value / 1000;
-}
 
 function clampNumber(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-function addBox(
-  group: THREE.Group,
-  size: [number, number, number],
-  position: [number, number, number],
-  material: THREE.Material
-) {
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
-  mesh.position.set(...position);
-  group.add(mesh);
-
-  const edges = new THREE.LineSegments(
-    new THREE.EdgesGeometry(mesh.geometry),
-    new THREE.LineBasicMaterial({ color: 0x17201b, transparent: true, opacity: 0.26 })
-  );
-  edges.position.copy(mesh.position);
-  group.add(edges);
-  return mesh;
-}
-
-function buildJoinery(group: THREE.Group, config: RenderConfig) {
-  const width = mmToScene(config.width);
-  const height = mmToScene(config.height);
-  const depth = mmToScene(config.depth);
-  const frame = mmToScene(config.frameWidth);
-  const frameColor = colorHex[config.outsideColor] ?? 0x30343a;
-  const profileMaterial = new THREE.MeshStandardMaterial({
-    color: frameColor,
-    roughness: 0.36,
-    metalness: config.series.includes("ALU") ? 0.42 : 0.1
-  });
-  const innerMaterial = new THREE.MeshStandardMaterial({
-    color: colorHex[config.insideColor] ?? frameColor,
-    roughness: 0.42,
-    metalness: 0.08
-  });
-  const glassMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0xbfe8f6,
-    metalness: 0,
-    roughness: 0.04,
-    transmission: 0.35,
-    transparent: true,
-    opacity: 0.42
-  });
-
-  addBox(group, [frame, height, depth], [-width / 2 + frame / 2, 0, 0], profileMaterial);
-  addBox(group, [frame, height, depth], [width / 2 - frame / 2, 0, 0], profileMaterial);
-  addBox(group, [width, frame, depth], [0, height / 2 - frame / 2, 0], profileMaterial);
-  addBox(group, [width, frame, depth], [0, -height / 2 + frame / 2, 0], profileMaterial);
-  addBox(
-    group,
-    [width - frame * 2.2, height - frame * 2.2, 0.018],
-    [0, 0, -depth / 2 - 0.008],
-    glassMaterial
-  );
-
-  for (let i = 1; i < config.verticalDivisions; i += 1) {
-    const x = -width / 2 + (width / config.verticalDivisions) * i;
-    addBox(group, [frame * 0.74, height - frame * 1.6, depth * 0.86], [x, 0, 0.006], innerMaterial);
-  }
-
-  for (let i = 1; i < config.horizontalDivisions; i += 1) {
-    const y = -height / 2 + (height / config.horizontalDivisions) * i;
-    addBox(group, [width - frame * 1.6, frame * 0.74, depth * 0.86], [0, y, 0.008], innerMaterial);
-  }
-
-  if (config.openingMode !== "fixed") {
-    const handleX = width / 2 - frame * 1.45;
-    addBox(group, [frame * 0.24, height * 0.22, depth * 0.32], [handleX, 0, depth * 0.78], new THREE.MeshStandardMaterial({ color: 0xc9c3b7, metalness: 0.6, roughness: 0.24 }));
-    if (config.openingMode.includes("tilt")) {
-      const sash = new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints([
-          new THREE.Vector3(-width / 2 + frame, height / 2 - frame, depth),
-          new THREE.Vector3(width / 2 - frame, -height / 2 + frame, depth)
-        ]),
-        new THREE.LineBasicMaterial({ color: 0x2f8f62, linewidth: 2 })
-      );
-      group.add(sash);
-    }
-  }
-}
-
-function buildFurniture(group: THREE.Group, config: RenderConfig) {
-  const width = mmToScene(config.width);
-  const height = mmToScene(config.height);
-  const depth = mmToScene(config.depth);
-  const board = mmToScene(config.frameWidth);
-  const material = new THREE.MeshStandardMaterial({
-    color: colorHex[config.outsideColor] ?? 0x8d5d32,
-    roughness: 0.5,
-    metalness: 0.02
-  });
-  const back = new THREE.MeshStandardMaterial({ color: 0xd6c5aa, roughness: 0.55 });
-
-  addBox(group, [board, height, depth], [-width / 2 + board / 2, 0, 0], material);
-  addBox(group, [board, height, depth], [width / 2 - board / 2, 0, 0], material);
-  addBox(group, [width, board, depth], [0, height / 2 - board / 2, 0], material);
-  addBox(group, [width, board, depth], [0, -height / 2 + board / 2, 0], material);
-  addBox(group, [width - board * 2, height - board * 2, board * 0.55], [0, 0, -depth / 2], back);
-
-  for (let i = 1; i < config.horizontalDivisions; i += 1) {
-    const y = -height / 2 + (height / config.horizontalDivisions) * i;
-    addBox(group, [width - board * 2, board * 0.85, depth - board], [0, y, 0], material);
-  }
-  for (let i = 1; i < config.verticalDivisions; i += 1) {
-    const x = -width / 2 + (width / config.verticalDivisions) * i;
-    addBox(group, [board * 0.85, height - board * 2, depth - board], [x, 0, 0], material);
-  }
-}
-
-function buildUniversal(group: THREE.Group, config: RenderConfig) {
-  const width = mmToScene(config.width);
-  const height = mmToScene(config.height);
-  const depth = mmToScene(config.depth);
-  const beam = mmToScene(config.frameWidth);
-  const material = new THREE.MeshStandardMaterial({
-    color: colorHex[config.outsideColor] ?? 0x2e77a8,
-    roughness: 0.34,
-    metalness: 0.34
-  });
-
-  const xs = [-width / 2 + beam / 2, width / 2 - beam / 2];
-  const ys = [-height / 2 + beam / 2, height / 2 - beam / 2];
-  const zs = [-depth / 2 + beam / 2, depth / 2 - beam / 2];
-  xs.forEach((x) => ys.forEach((y) => addBox(group, [beam, beam, depth], [x, y, 0], material)));
-  xs.forEach((x) => zs.forEach((z) => addBox(group, [beam, height, beam], [x, 0, z], material)));
-  ys.forEach((y) => zs.forEach((z) => addBox(group, [width, beam, beam], [0, y, z], material)));
+function productColor(value: string, fallback = "#30343a") {
+  return colorHex[value] ?? fallback;
 }
 
 export function ProductionRenderer({
@@ -470,8 +342,6 @@ export function ProductionRenderer({
   onCreateOrder
 }: ProductionRendererProps) {
   const t = copy[language];
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const shellRef = useRef<HTMLDivElement | null>(null);
   const [config, setConfig] = useState<RenderConfig>({
     family: "joinery",
     width: 1400,
@@ -559,81 +429,82 @@ export function ProductionRenderer({
     return { profiles, glass, panels };
   }, [stock]);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const shell = shellRef.current;
-    if (!canvas || !shell) return;
-    const shellElement = shell;
+  const modelVars = {
+    "--model-ratio": `${clampNumber(config.width / Math.max(1, config.height), 0.55, 1.85)}`,
+    "--frame-size": `${clampNumber((config.frameWidth / Math.max(config.width, config.height)) * 100, 4, 13)}%`,
+    "--depth-size": `${clampNumber(config.depth / 2.4, 24, 120)}px`,
+    "--outside-color": productColor(config.outsideColor),
+    "--inside-color": productColor(config.insideColor, productColor(config.outsideColor)),
+    "--board-color": productColor(config.outsideColor, "#8d5d32")
+  } as CSSProperties;
 
-    const scene = new THREE.Scene();
-    scene.fog = new THREE.Fog(0xf4f0e8, 4, 8);
-    const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 100);
-    camera.position.set(0.35, 0.28, 4.2);
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
+  const divisionColumns = Array.from({ length: config.verticalDivisions });
+  const divisionRows = Array.from({ length: config.horizontalDivisions });
 
-    const ambient = new THREE.HemisphereLight(0xffffff, 0x52635a, 2.2);
-    scene.add(ambient);
-    const key = new THREE.DirectionalLight(0xffffff, 3.6);
-    key.position.set(3, 3, 4);
-    scene.add(key);
-    const fill = new THREE.DirectionalLight(0xaed7ff, 1.3);
-    fill.position.set(-2, 1, 3);
-    scene.add(fill);
-
-    const group = new THREE.Group();
-    scene.add(group);
-
-    if (config.family === "joinery") buildJoinery(group, config);
-    if (config.family === "furniture") buildFurniture(group, config);
-    if (config.family === "universal") buildUniversal(group, config);
-
-    const maxDimension = Math.max(config.width, config.height, config.depth) / 1000;
-    const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(maxDimension * 2.2, maxDimension * 1.4),
-      new THREE.MeshStandardMaterial({ color: 0xded8c8, roughness: 0.8, metalness: 0 })
-    );
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.y = -mmToScene(config.height) / 2 - 0.08;
-    floor.position.z = 0.12;
-    scene.add(floor);
-
-    function resize() {
-      const rect = shellElement.getBoundingClientRect();
-      renderer.setSize(rect.width, rect.height, false);
-      camera.aspect = rect.width / Math.max(1, rect.height);
-      camera.updateProjectionMatrix();
+  function renderProductModel() {
+    if (config.family === "furniture") {
+      return (
+        <div className="css-product furniture-model" style={modelVars}>
+          <div className="furniture-back" />
+          <div className="furniture-side left" />
+          <div className="furniture-side right" />
+          <div className="furniture-cap top" />
+          <div className="furniture-cap bottom" />
+          {divisionRows.slice(1).map((_, index) => (
+            <span className="furniture-shelf" key={`shelf-${index}`} style={{ top: `${((index + 1) / config.horizontalDivisions) * 100}%` }} />
+          ))}
+          {divisionColumns.slice(1).map((_, index) => (
+            <span className="furniture-divider" key={`divider-${index}`} style={{ left: `${((index + 1) / config.verticalDivisions) * 100}%` }} />
+          ))}
+        </div>
+      );
     }
 
-    const observer = new ResizeObserver(resize);
-    observer.observe(shellElement);
-    resize();
+    if (config.family === "universal") {
+      return (
+        <div className="css-product universal-model" style={modelVars}>
+          <span className="beam top-front" />
+          <span className="beam bottom-front" />
+          <span className="beam left-front" />
+          <span className="beam right-front" />
+          <span className="beam top-back" />
+          <span className="beam bottom-back" />
+          <span className="beam left-back" />
+          <span className="beam right-back" />
+          <span className="beam depth-a" />
+          <span className="beam depth-b" />
+          <span className="beam depth-c" />
+          <span className="beam depth-d" />
+        </div>
+      );
+    }
 
-    let frame = 0;
-    let animation = 0;
-    const renderLoop = () => {
-      frame += 1;
-      group.rotation.y = Math.sin(frame / 150) * 0.16;
-      group.rotation.x = -0.05;
-      renderer.render(scene, camera);
-      animation = requestAnimationFrame(renderLoop);
-    };
-    renderLoop();
-
-    return () => {
-      cancelAnimationFrame(animation);
-      observer.disconnect();
-      renderer.dispose();
-      scene.traverse((object) => {
-        if (object instanceof THREE.Mesh) {
-          object.geometry.dispose();
-          const materials = Array.isArray(object.material) ? object.material : [object.material];
-          materials.forEach((material) => material.dispose());
-        }
-      });
-    };
-  }, [config]);
+    return (
+      <div className="css-product joinery-model" style={modelVars}>
+        <div className="joinery-frame">
+          <div
+            className="glass-grid"
+            style={{
+              gridTemplateColumns: `repeat(${config.verticalDivisions}, minmax(0, 1fr))`,
+              gridTemplateRows: `repeat(${config.horizontalDivisions}, minmax(0, 1fr))`
+            }}
+          >
+            {Array.from({ length: calculations.panes }).map((_, index) => (
+              <span className="glass-pane" key={index} />
+            ))}
+          </div>
+          {divisionColumns.slice(1).map((_, index) => (
+            <span className="mullion vertical" key={`v-${index}`} style={{ left: `${((index + 1) / config.verticalDivisions) * 100}%` }} />
+          ))}
+          {divisionRows.slice(1).map((_, index) => (
+            <span className="mullion horizontal" key={`h-${index}`} style={{ top: `${((index + 1) / config.horizontalDivisions) * 100}%` }} />
+          ))}
+          {config.openingMode !== "fixed" ? <span className="render-handle" /> : null}
+          {config.openingMode.includes("tilt") ? <span className="tilt-line" /> : null}
+        </div>
+      </div>
+    );
+  }
 
   function update<K extends keyof RenderConfig>(key: K, value: RenderConfig[K]) {
     setConfig((previous) => ({ ...previous, [key]: value }));
@@ -660,8 +531,12 @@ export function ProductionRenderer({
       </div>
 
       <div className="render-workbench">
-        <div className="render-stage" ref={shellRef}>
-          <canvas aria-label="3D production render" ref={canvasRef} />
+        <div className="render-stage" aria-label="3D production render">
+          <div className="stage-grid" />
+          <div className="stage-camera">
+            {renderProductModel()}
+          </div>
+          <div className="stage-shadow" />
         </div>
 
         <div className="render-controls">

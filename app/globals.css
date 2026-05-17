@@ -1061,11 +1061,287 @@ textarea:focus {
   top: 18px;
 }
 
-.render-stage canvas {
-  display: block;
+.stage-grid {
+  background-image:
+    linear-gradient(rgba(16, 24, 32, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 24, 32, 0.06) 1px, transparent 1px);
+  background-size: 42px 42px;
+  inset: 0;
+  opacity: 0.58;
+  position: absolute;
+}
+
+.stage-camera {
+  align-items: center;
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  perspective: 1200px;
+  position: absolute;
+  transform-style: preserve-3d;
+}
+
+.css-product {
+  aspect-ratio: var(--model-ratio);
+  filter: drop-shadow(0 28px 32px rgba(16, 24, 32, 0.22));
+  max-height: 74%;
+  max-width: 78%;
+  min-height: 260px;
+  min-width: 220px;
+  position: relative;
+  transform: rotateX(4deg) rotateY(-16deg) rotateZ(-1deg);
+  transform-style: preserve-3d;
+  width: min(62%, 620px);
+}
+
+.css-product::after {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 50%;
+  bottom: -42px;
+  content: "";
+  filter: blur(18px);
+  height: 42px;
+  left: 12%;
+  position: absolute;
+  transform: rotateX(78deg);
+  width: 76%;
+}
+
+.joinery-frame {
+  background: var(--outside-color);
+  border-radius: 3px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.16),
+    18px 18px 0 color-mix(in srgb, var(--outside-color) 72%, #000 28%);
   height: 100%;
-  min-height: 0;
+  padding: var(--frame-size);
+  position: relative;
+  transform-style: preserve-3d;
   width: 100%;
+}
+
+.glass-grid {
+  background: rgba(219, 244, 250, 0.64);
+  border: max(6px, calc(var(--frame-size) * 0.32)) solid var(--inside-color);
+  display: grid;
+  gap: max(6px, calc(var(--frame-size) * 0.2));
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.glass-grid::before {
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.52), transparent 28%, rgba(255, 255, 255, 0.18) 62%, transparent);
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.glass-pane {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.38), rgba(154, 213, 227, 0.28)),
+    rgba(194, 232, 241, 0.7);
+  border: 1px solid rgba(23, 32, 27, 0.14);
+  min-height: 0;
+}
+
+.mullion {
+  background: var(--inside-color);
+  box-shadow: 3px 0 0 rgba(16, 24, 32, 0.12);
+  position: absolute;
+  z-index: 2;
+}
+
+.mullion.vertical {
+  height: calc(100% - var(--frame-size) * 2);
+  top: var(--frame-size);
+  transform: translateX(-50%);
+  width: max(7px, calc(var(--frame-size) * 0.42));
+}
+
+.mullion.horizontal {
+  height: max(7px, calc(var(--frame-size) * 0.42));
+  left: var(--frame-size);
+  transform: translateY(-50%);
+  width: calc(100% - var(--frame-size) * 2);
+}
+
+.render-handle {
+  background: linear-gradient(90deg, #d6cec0, #8c877c);
+  border-radius: 999px;
+  box-shadow: 2px 4px 8px rgba(0, 0, 0, 0.22);
+  height: 18%;
+  position: absolute;
+  right: calc(var(--frame-size) * 0.75);
+  top: 43%;
+  width: max(8px, calc(var(--frame-size) * 0.32));
+  z-index: 4;
+}
+
+.tilt-line {
+  background: #2f8f62;
+  height: 2px;
+  left: calc(var(--frame-size) * 1.2);
+  opacity: 0.7;
+  position: absolute;
+  top: calc(var(--frame-size) * 1.2);
+  transform: rotate(39deg);
+  transform-origin: left center;
+  width: 128%;
+  z-index: 3;
+}
+
+.furniture-model {
+  background: color-mix(in srgb, var(--board-color) 92%, #fff 8%);
+  border: max(14px, var(--frame-size)) solid var(--board-color);
+  box-shadow: 24px 24px 0 color-mix(in srgb, var(--board-color) 68%, #000 32%);
+  min-height: 300px;
+}
+
+.furniture-back {
+  background: rgba(255, 255, 255, 0.24);
+  inset: 0;
+  position: absolute;
+}
+
+.furniture-side,
+.furniture-cap,
+.furniture-shelf,
+.furniture-divider {
+  background: color-mix(in srgb, var(--board-color) 86%, #fff 14%);
+  position: absolute;
+}
+
+.furniture-side.left,
+.furniture-side.right {
+  height: 100%;
+  top: 0;
+  width: max(12px, var(--frame-size));
+}
+
+.furniture-side.left { left: 0; }
+.furniture-side.right { right: 0; }
+
+.furniture-cap.top,
+.furniture-cap.bottom {
+  height: max(12px, var(--frame-size));
+  left: 0;
+  width: 100%;
+}
+
+.furniture-cap.top { top: 0; }
+.furniture-cap.bottom { bottom: 0; }
+
+.furniture-shelf {
+  height: max(8px, calc(var(--frame-size) * 0.62));
+  left: max(12px, var(--frame-size));
+  transform: translateY(-50%);
+  width: calc(100% - max(12px, var(--frame-size)) * 2);
+}
+
+.furniture-divider {
+  height: calc(100% - max(12px, var(--frame-size)) * 2);
+  top: max(12px, var(--frame-size));
+  transform: translateX(-50%);
+  width: max(8px, calc(var(--frame-size) * 0.62));
+}
+
+.universal-model {
+  min-height: 300px;
+}
+
+.beam {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--outside-color) 80%, #fff 20%), var(--outside-color));
+  border: 1px solid rgba(16, 24, 32, 0.22);
+  border-radius: 4px;
+  box-shadow: 8px 8px 0 color-mix(in srgb, var(--outside-color) 65%, #000 35%);
+  position: absolute;
+}
+
+.top-front,
+.bottom-front,
+.top-back,
+.bottom-back {
+  height: max(12px, var(--frame-size));
+  left: 5%;
+  width: 90%;
+}
+
+.left-front,
+.right-front,
+.left-back,
+.right-back {
+  height: 82%;
+  top: 9%;
+  width: max(12px, var(--frame-size));
+}
+
+.top-front { top: 8%; }
+.bottom-front { bottom: 8%; }
+.left-front { left: 5%; }
+.right-front { right: 5%; }
+
+.top-back {
+  top: 0;
+  transform: translate3d(var(--depth-size), calc(var(--depth-size) * -0.6), calc(var(--depth-size) * -1));
+}
+
+.bottom-back {
+  bottom: 16%;
+  transform: translate3d(var(--depth-size), calc(var(--depth-size) * -0.6), calc(var(--depth-size) * -1));
+}
+
+.left-back {
+  left: calc(5% + var(--depth-size));
+  transform: translateY(calc(var(--depth-size) * -0.6)) translateZ(calc(var(--depth-size) * -1));
+}
+
+.right-back {
+  right: calc(5% - var(--depth-size));
+  transform: translateY(calc(var(--depth-size) * -0.6)) translateZ(calc(var(--depth-size) * -1));
+}
+
+.depth-a,
+.depth-b,
+.depth-c,
+.depth-d {
+  height: max(10px, calc(var(--frame-size) * 0.82));
+  width: var(--depth-size);
+}
+
+.depth-a {
+  left: 5%;
+  top: 8%;
+  transform: rotate(-32deg);
+}
+
+.depth-b {
+  right: 5%;
+  top: 8%;
+  transform: rotate(-32deg);
+}
+
+.depth-c {
+  bottom: 8%;
+  left: 5%;
+  transform: rotate(-32deg);
+}
+
+.depth-d {
+  bottom: 8%;
+  right: 5%;
+  transform: rotate(-32deg);
+}
+
+.stage-shadow {
+  background: radial-gradient(ellipse, rgba(16, 24, 32, 0.2), transparent 65%);
+  bottom: 10%;
+  height: 80px;
+  left: 22%;
+  position: absolute;
+  width: 56%;
 }
 
 .render-controls {
@@ -1373,10 +1649,6 @@ meter {
     top: auto;
   }
 
-  .render-stage canvas {
-    min-height: 0;
-  }
-
   .metric-grid,
   .metric-grid.three,
   .pipeline,
@@ -1442,8 +1714,7 @@ meter {
     min-width: 0;
   }
 
-  .render-stage,
-  .render-stage canvas {
+  .render-stage {
     height: 420px;
     min-height: 0;
   }

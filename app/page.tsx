@@ -42,14 +42,14 @@ import type { LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent, ReactNode } from "react";
 import { ProductionRenderer } from "../components/ProductionRenderer";
-import { legacyCatalog } from "../lib/legacyCatalog";
+import { legacyCatalog } from "./_domain/legacyCatalog";
 import {
   languages,
   makeTranslator,
   stateTranslations,
   type Language,
   type TranslationKey
-} from "../lib/i18n";
+} from "./_domain/i18n";
 
 type View =
   | "dashboard"

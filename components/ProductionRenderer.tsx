@@ -1,7 +1,8 @@
 "use client";
 
 import { Box, Check, Factory, Layers, Ruler, Save, SlidersHorizontal } from "lucide-react";
-import { useMemo, useState } from "react";
+import * as THREE from "three";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { legacyCatalog } from "../app/_domain/legacyCatalog";
 import type { Language } from "../app/_domain/i18n";
@@ -52,6 +53,22 @@ type StockLike = {
   reserved: number;
   unit: string;
   value: number;
+};
+
+type RenderCalculations = {
+  panes: number;
+  bars: number;
+  profileMeters: number;
+  profileWaste: number;
+  glassArea: number;
+  glassWidth: number;
+  glassHeight: number;
+  glassFits: boolean;
+  panelFits: boolean;
+  gasket: number;
+  screws: number;
+  hinges: number;
+  boardArea: number;
 };
 
 type ProductionRendererProps = {
@@ -116,7 +133,15 @@ const copy = {
     risk: "Rizik",
     studio: "3D render production",
     materialBrain: "Materijalni mozak",
-    warehouseFit: "Provjera skladišta"
+    warehouseFit: "Provjera skladista",
+    liveEngine: "Live WebGL engine",
+    studioQuality: "Studio kvalitet",
+    cncPath: "CNC putanja",
+    stockYield: "Iskoristenje",
+    profileDepth: "Dubina profila",
+    clearOpening: "Svijetli otvor",
+    materialStack: "Slojevi materijala",
+    readyPieces: "Spremni komadi"
   },
   de: {
     family: "Produkttyp",
@@ -163,7 +188,15 @@ const copy = {
     risk: "Risiko",
     studio: "3D Produktionsrender",
     materialBrain: "Materiallogik",
-    warehouseFit: "Lagerpruefung"
+    warehouseFit: "Lagerpruefung",
+    liveEngine: "Live WebGL Engine",
+    studioQuality: "Studioqualitaet",
+    cncPath: "CNC Pfad",
+    stockYield: "Ausbeute",
+    profileDepth: "Profiltiefe",
+    clearOpening: "Lichte Oeffnung",
+    materialStack: "Materialschichten",
+    readyPieces: "Fertige Teile"
   },
   it: {
     family: "Tipo prodotto",
@@ -210,7 +243,15 @@ const copy = {
     risk: "Rischio",
     studio: "Render 3D produzione",
     materialBrain: "Logica materiali",
-    warehouseFit: "Controllo magazzino"
+    warehouseFit: "Controllo magazzino",
+    liveEngine: "Motore WebGL live",
+    studioQuality: "Qualita studio",
+    cncPath: "Percorso CNC",
+    stockYield: "Resa materiale",
+    profileDepth: "Profondita profilo",
+    clearOpening: "Luce netta",
+    materialStack: "Strati materiale",
+    readyPieces: "Pezzi pronti"
   },
   es: {
     family: "Tipo de producto",
@@ -257,7 +298,15 @@ const copy = {
     risk: "Riesgo",
     studio: "Render 3D produccion",
     materialBrain: "Logica de materiales",
-    warehouseFit: "Control almacen"
+    warehouseFit: "Control almacen",
+    liveEngine: "Motor WebGL en vivo",
+    studioQuality: "Calidad estudio",
+    cncPath: "Ruta CNC",
+    stockYield: "Rendimiento",
+    profileDepth: "Profundidad perfil",
+    clearOpening: "Apertura libre",
+    materialStack: "Capas material",
+    readyPieces: "Piezas listas"
   },
   en: {
     family: "Product type",
@@ -304,7 +353,15 @@ const copy = {
     risk: "Risk",
     studio: "3D production render",
     materialBrain: "Material brain",
-    warehouseFit: "Warehouse check"
+    warehouseFit: "Warehouse check",
+    liveEngine: "Live WebGL engine",
+    studioQuality: "Studio quality",
+    cncPath: "CNC path",
+    stockYield: "Stock yield",
+    profileDepth: "Profile depth",
+    clearOpening: "Clear opening",
+    materialStack: "Material stack",
+    readyPieces: "Ready pieces"
   }
 } as const;
 
@@ -334,6 +391,457 @@ function clampNumber(value: number, min: number, max: number) {
 
 function productColor(value: string, fallback = "#30343a") {
   return colorHex[value] ?? fallback;
+}
+
+function createBoardTexture(hexColor: string) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 256;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return undefined;
+  }
+
+  const base = new THREE.Color(hexColor);
+  context.fillStyle = `#${base.getHexString()}`;
+  context.fillRect(0, 0, canvas.width, canvas.height);
+
+  for (let index = 0; index < 44; index += 1) {
+    const alpha = 0.08 + (index % 7) * 0.018;
+    context.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+    context.lineWidth = 1 + (index % 3);
+    context.beginPath();
+    const y = (index / 44) * canvas.height;
+    context.moveTo(0, y);
+    context.bezierCurveTo(72, y - 16, 148, y + 18, 256, y - 5);
+    context.stroke();
+  }
+
+  for (let index = 0; index < 18; index += 1) {
+    context.strokeStyle = "rgba(0, 0, 0, 0.08)";
+    context.lineWidth = 1;
+    context.beginPath();
+    const y = Math.random() * canvas.height;
+    context.moveTo(0, y);
+    context.bezierCurveTo(82, y + 24, 166, y - 20, 256, y + 10);
+    context.stroke();
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(2.7, 1.4);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+function disposeMaterial(material: THREE.Material | THREE.Material[]) {
+  const materials = Array.isArray(material) ? material : [material];
+  materials.forEach((item) => {
+    Object.values(item).forEach((value) => {
+      if (value && typeof value === "object" && "isTexture" in value) {
+        (value as THREE.Texture).dispose();
+      }
+    });
+    item.dispose();
+  });
+}
+
+function ProductionThreeScene({
+  config,
+  calculations
+}: {
+  config: RenderConfig;
+  calculations: RenderCalculations;
+}) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) {
+      return undefined;
+    }
+    const container = host;
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0xdce8e2, 0.048);
+
+    const renderer = new THREE.WebGLRenderer({
+      alpha: true,
+      antialias: true,
+      powerPreference: "high-performance",
+      preserveDrawingBuffer: true
+    });
+    renderer.domElement.className = "render-canvas";
+    renderer.domElement.dataset.renderCanvas = "true";
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    container.appendChild(renderer.domElement);
+
+    const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 100);
+    const model = new THREE.Group();
+    scene.add(model);
+
+    const outside = productColor(config.outsideColor);
+    const inside = productColor(config.insideColor, outside);
+    const boardTexture = createBoardTexture(outside);
+
+    const profileMaterial = new THREE.MeshStandardMaterial({
+      color: outside,
+      metalness: 0.18,
+      roughness: 0.34
+    });
+    const innerMaterial = new THREE.MeshStandardMaterial({
+      color: inside,
+      metalness: 0.12,
+      roughness: 0.42
+    });
+    const edgeMaterial = new THREE.LineBasicMaterial({
+      color: 0xffffff,
+      opacity: 0.22,
+      transparent: true
+    });
+    const glassMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0xbfefff,
+      metalness: 0,
+      opacity: 0.38,
+      roughness: 0.02,
+      thickness: 0.18,
+      transmission: 0.58,
+      transparent: true
+    });
+    const gasketMaterial = new THREE.MeshStandardMaterial({
+      color: 0x111820,
+      metalness: 0.05,
+      roughness: 0.72
+    });
+    const metalMaterial = new THREE.MeshStandardMaterial({
+      color: 0xd8d2c4,
+      metalness: 0.72,
+      roughness: 0.22
+    });
+    const boardMaterial = new THREE.MeshStandardMaterial({
+      color: outside,
+      map: boardTexture,
+      metalness: 0.02,
+      roughness: 0.48
+    });
+    const glowMaterial = new THREE.MeshBasicMaterial({
+      color: 0xf97316,
+      opacity: 0.5,
+      transparent: true
+    });
+
+    const width = clampNumber(config.width / 620, 1.4, 5.4);
+    const height = clampNumber(config.height / 620, 1.2, 5.1);
+    const depth = clampNumber(config.depth / 260, 0.22, 1.9);
+    const frame = clampNumber(config.frameWidth / 620, 0.1, 0.42);
+    const maxSize = Math.max(width, height);
+
+    function addBox(
+      target: THREE.Group,
+      size: THREE.Vector3Tuple,
+      position: THREE.Vector3Tuple,
+      material: THREE.Material,
+      edged = true
+    ) {
+      const geometry = new THREE.BoxGeometry(size[0], size[1], size[2]);
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.set(position[0], position[1], position[2]);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      if (edged) {
+        const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), edgeMaterial);
+        edges.renderOrder = 2;
+        mesh.add(edges);
+      }
+      target.add(mesh);
+      return mesh;
+    }
+
+    function addGuide(points: THREE.Vector3Tuple[], color = 0xf97316) {
+      const geometry = new THREE.BufferGeometry().setFromPoints(
+        points.map((point) => new THREE.Vector3(point[0], point[1], point[2]))
+      );
+      const material = new THREE.LineBasicMaterial({
+        color,
+        opacity: 0.82,
+        transparent: true
+      });
+      const line = new THREE.Line(geometry, material);
+      model.add(line);
+      return line;
+    }
+
+    function addDimensionGuides() {
+      const z = depth / 2 + 0.2;
+      const bottom = -height / 2 - 0.28;
+      const left = -width / 2 - 0.28;
+      addGuide([[-width / 2, bottom, z], [width / 2, bottom, z]]);
+      addGuide([[left, -height / 2, z], [left, height / 2, z]], 0x2f8f62);
+      addGuide([[width / 2 + 0.18, -height / 2, -depth / 2], [width / 2 + 0.56, -height / 2 + 0.28, depth / 2]], 0x2e77a8);
+      addBox(model, [0.04, 0.18, 0.04], [-width / 2, bottom, z], glowMaterial, false);
+      addBox(model, [0.04, 0.18, 0.04], [width / 2, bottom, z], glowMaterial, false);
+      addBox(model, [0.18, 0.04, 0.04], [left, -height / 2, z], glowMaterial, false);
+      addBox(model, [0.18, 0.04, 0.04], [left, height / 2, z], glowMaterial, false);
+    }
+
+    function buildJoinery() {
+      addBox(model, [width, frame, depth], [0, height / 2 - frame / 2, 0], profileMaterial);
+      addBox(model, [width, frame, depth], [0, -height / 2 + frame / 2, 0], profileMaterial);
+      addBox(model, [frame, height, depth], [-width / 2 + frame / 2, 0, 0], profileMaterial);
+      addBox(model, [frame, height, depth], [width / 2 - frame / 2, 0, 0], profileMaterial);
+
+      const innerWidth = Math.max(0.4, width - frame * 2);
+      const innerHeight = Math.max(0.4, height - frame * 2);
+      const paneWidth = innerWidth / config.verticalDivisions;
+      const paneHeight = innerHeight / config.horizontalDivisions;
+
+      for (let column = 1; column < config.verticalDivisions; column += 1) {
+        addBox(model, [frame * 0.58, innerHeight, depth * 0.94], [-innerWidth / 2 + paneWidth * column, 0, depth * 0.03], innerMaterial);
+      }
+      for (let row = 1; row < config.horizontalDivisions; row += 1) {
+        addBox(model, [innerWidth, frame * 0.58, depth * 0.94], [0, innerHeight / 2 - paneHeight * row, depth * 0.03], innerMaterial);
+      }
+
+      for (let row = 0; row < config.horizontalDivisions; row += 1) {
+        for (let column = 0; column < config.verticalDivisions; column += 1) {
+          const centerX = -innerWidth / 2 + paneWidth * (column + 0.5);
+          const centerY = innerHeight / 2 - paneHeight * (row + 0.5);
+          const clearWidth = Math.max(0.18, paneWidth - frame * 0.78);
+          const clearHeight = Math.max(0.18, paneHeight - frame * 0.78);
+          const glass = addBox(model, [clearWidth, clearHeight, 0.035], [centerX, centerY, depth * 0.34], glassMaterial, false);
+          glass.castShadow = false;
+
+          if (config.openingMode !== "fixed") {
+            const sash = frame * 0.24;
+            addBox(model, [clearWidth + sash, sash, depth * 0.42], [centerX, centerY + clearHeight / 2, depth * 0.45], innerMaterial);
+            addBox(model, [clearWidth + sash, sash, depth * 0.42], [centerX, centerY - clearHeight / 2, depth * 0.45], innerMaterial);
+            addBox(model, [sash, clearHeight, depth * 0.42], [centerX - clearWidth / 2, centerY, depth * 0.45], innerMaterial);
+            addBox(model, [sash, clearHeight, depth * 0.42], [centerX + clearWidth / 2, centerY, depth * 0.45], innerMaterial);
+          }
+        }
+      }
+
+      if (config.openingMode !== "fixed") {
+        addBox(model, [frame * 0.17, height * 0.2, frame * 0.14], [width / 2 - frame * 0.7, 0, depth * 0.78], metalMaterial);
+        addBox(model, [frame * 0.2, frame * 0.42, frame * 0.18], [-width / 2 + frame * 0.24, height * 0.22, depth * 0.55], metalMaterial);
+        addBox(model, [frame * 0.2, frame * 0.42, frame * 0.18], [-width / 2 + frame * 0.24, -height * 0.22, depth * 0.55], metalMaterial);
+      }
+
+      if (config.openingMode === "sliding") {
+        addBox(model, [width * 0.92, frame * 0.13, depth * 0.18], [0, -height / 2 + frame * 1.15, depth * 0.72], metalMaterial);
+        addBox(model, [width * 0.92, frame * 0.13, depth * 0.18], [0, height / 2 - frame * 1.15, depth * 0.72], metalMaterial);
+      }
+
+      if (config.openingMode.includes("tilt")) {
+        const diagonal = addBox(model, [Math.hypot(width, height) * 0.72, 0.018, 0.026], [0, 0, depth * 0.86], glowMaterial, false);
+        diagonal.rotation.z = Math.atan2(height, width);
+      }
+
+      addBox(model, [width - frame * 1.3, frame * 0.08, depth * 0.08], [0, -height / 2 + frame * 1.2, depth * 0.62], gasketMaterial, false);
+    }
+
+    function buildFurniture() {
+      const board = Math.max(frame * 0.85, 0.14);
+      addBox(model, [board, height, depth], [-width / 2 + board / 2, 0, 0], boardMaterial);
+      addBox(model, [board, height, depth], [width / 2 - board / 2, 0, 0], boardMaterial);
+      addBox(model, [width, board, depth], [0, height / 2 - board / 2, 0], boardMaterial);
+      addBox(model, [width, board, depth], [0, -height / 2 + board / 2, 0], boardMaterial);
+      addBox(model, [width - board * 2, height - board * 2, board * 0.35], [0, 0, -depth / 2 + board * 0.18], boardMaterial, false);
+
+      for (let row = 1; row < config.horizontalDivisions; row += 1) {
+        addBox(model, [width - board * 2, board * 0.72, depth * 0.92], [0, height / 2 - (height / config.horizontalDivisions) * row, 0], boardMaterial);
+      }
+      for (let column = 1; column < config.verticalDivisions; column += 1) {
+        addBox(model, [board * 0.72, height - board * 2, depth * 0.92], [-width / 2 + (width / config.verticalDivisions) * column, 0, 0], boardMaterial);
+      }
+
+      const doorWidth = (width - board * 2) / Math.max(1, config.verticalDivisions);
+      for (let column = 0; column < config.verticalDivisions; column += 1) {
+        const centerX = -width / 2 + board + doorWidth * (column + 0.5);
+        addBox(model, [doorWidth * 0.84, height * 0.72, board * 0.18], [centerX, 0, depth / 2 + board * 0.12], boardMaterial);
+        addBox(model, [board * 0.12, height * 0.2, board * 0.2], [centerX + doorWidth * 0.25, 0, depth / 2 + board * 0.28], metalMaterial);
+      }
+    }
+
+    function buildUniversal() {
+      const bar = Math.max(frame, 0.13);
+      const frontZ = depth / 2;
+      const backZ = -depth / 2;
+      [frontZ, backZ].forEach((z) => {
+        addBox(model, [width, bar, bar], [0, height / 2 - bar / 2, z], profileMaterial);
+        addBox(model, [width, bar, bar], [0, -height / 2 + bar / 2, z], profileMaterial);
+        addBox(model, [bar, height, bar], [-width / 2 + bar / 2, 0, z], profileMaterial);
+        addBox(model, [bar, height, bar], [width / 2 - bar / 2, 0, z], profileMaterial);
+      });
+      [
+        [-width / 2 + bar / 2, height / 2 - bar / 2],
+        [width / 2 - bar / 2, height / 2 - bar / 2],
+        [-width / 2 + bar / 2, -height / 2 + bar / 2],
+        [width / 2 - bar / 2, -height / 2 + bar / 2]
+      ].forEach(([x, y]) => {
+        addBox(model, [bar * 0.72, bar * 0.72, depth], [x, y, 0], innerMaterial);
+      });
+    }
+
+    if (config.family === "furniture") {
+      buildFurniture();
+    } else if (config.family === "universal") {
+      buildUniversal();
+    } else {
+      buildJoinery();
+    }
+    addDimensionGuides();
+
+    const floor = new THREE.Mesh(
+      new THREE.CircleGeometry(Math.max(3.8, maxSize * 1.25), 96),
+      new THREE.MeshStandardMaterial({
+        color: 0xdde7e1,
+        metalness: 0.02,
+        roughness: 0.86
+      })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -height / 2 - 0.14;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const grid = new THREE.GridHelper(Math.max(4.2, maxSize * 1.42), 18, 0xf97316, 0x6c7a72);
+    grid.position.y = floor.position.y + 0.006;
+    grid.material.opacity = 0.24;
+    grid.material.transparent = true;
+    scene.add(grid);
+
+    const ambient = new THREE.HemisphereLight(0xffffff, 0x26302c, 1.25);
+    scene.add(ambient);
+
+    const keyLight = new THREE.DirectionalLight(0xffffff, 2.4);
+    keyLight.position.set(-2.8, 4.8, 4.4);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.width = 2048;
+    keyLight.shadow.mapSize.height = 2048;
+    scene.add(keyLight);
+
+    const rimLight = new THREE.PointLight(0xf97316, 7, 8);
+    rimLight.position.set(3.2, 1.8, 2.8);
+    scene.add(rimLight);
+
+    const fillLight = new THREE.PointLight(0x8bdcff, 3.2, 7);
+    fillLight.position.set(-2.7, -0.4, 2.2);
+    scene.add(fillLight);
+
+    const particleCount = Math.min(170, 64 + calculations.panes * 14);
+    const particlePositions = new Float32Array(particleCount * 3);
+    for (let index = 0; index < particleCount; index += 1) {
+      particlePositions[index * 3] = (Math.random() - 0.5) * maxSize * 1.65;
+      particlePositions[index * 3 + 1] = (Math.random() - 0.2) * maxSize * 1.2;
+      particlePositions[index * 3 + 2] = (Math.random() - 0.5) * maxSize * 1.2;
+    }
+    const particleGeometry = new THREE.BufferGeometry();
+    particleGeometry.setAttribute("position", new THREE.BufferAttribute(particlePositions, 3));
+    const particles = new THREE.Points(
+      particleGeometry,
+      new THREE.PointsMaterial({
+        color: 0xf97316,
+        opacity: 0.38,
+        size: 0.018,
+        transparent: true
+      })
+    );
+    scene.add(particles);
+
+    camera.position.set(maxSize * 0.42, maxSize * 0.22, maxSize * 1.28 + 1.8);
+    camera.lookAt(0, 0, 0);
+
+    let targetRotationX = 0.08;
+    let targetRotationY = -0.42;
+    let dragging = false;
+    let lastX = 0;
+    let lastY = 0;
+    let frameId = 0;
+    const clock = new THREE.Clock();
+
+    function resize() {
+      const bounds = container.getBoundingClientRect();
+      const nextWidth = Math.max(1, Math.floor(bounds.width));
+      const nextHeight = Math.max(1, Math.floor(bounds.height));
+      renderer.setSize(nextWidth, nextHeight, false);
+      camera.aspect = nextWidth / nextHeight;
+      camera.updateProjectionMatrix();
+    }
+
+    function onPointerDown(event: PointerEvent) {
+      dragging = true;
+      lastX = event.clientX;
+      lastY = event.clientY;
+      renderer.domElement.setPointerCapture(event.pointerId);
+    }
+
+    function onPointerMove(event: PointerEvent) {
+      if (!dragging) {
+        return;
+      }
+      const deltaX = event.clientX - lastX;
+      const deltaY = event.clientY - lastY;
+      targetRotationY += deltaX * 0.008;
+      targetRotationX = clampNumber(targetRotationX + deltaY * 0.005, -0.34, 0.34);
+      lastX = event.clientX;
+      lastY = event.clientY;
+    }
+
+    function onPointerUp(event: PointerEvent) {
+      dragging = false;
+      if (renderer.domElement.hasPointerCapture(event.pointerId)) {
+        renderer.domElement.releasePointerCapture(event.pointerId);
+      }
+    }
+
+    function animate() {
+      const elapsed = clock.getElapsedTime();
+      const drift = dragging ? 0 : Math.sin(elapsed * 0.42) * 0.055;
+      model.rotation.x += (targetRotationX - model.rotation.x) * 0.08;
+      model.rotation.y += (targetRotationY + drift - model.rotation.y) * 0.08;
+      model.position.y = Math.sin(elapsed * 0.78) * 0.035;
+      particles.rotation.y = elapsed * 0.025;
+      particles.rotation.x = Math.sin(elapsed * 0.2) * 0.03;
+      renderer.render(scene, camera);
+      frameId = requestAnimationFrame(animate);
+    }
+
+    const observer = new ResizeObserver(resize);
+    observer.observe(container);
+    resize();
+    renderer.domElement.addEventListener("pointerdown", onPointerDown);
+    renderer.domElement.addEventListener("pointermove", onPointerMove);
+    renderer.domElement.addEventListener("pointerup", onPointerUp);
+    renderer.domElement.addEventListener("pointercancel", onPointerUp);
+    animate();
+
+    return () => {
+      cancelAnimationFrame(frameId);
+      observer.disconnect();
+      renderer.domElement.removeEventListener("pointerdown", onPointerDown);
+      renderer.domElement.removeEventListener("pointermove", onPointerMove);
+      renderer.domElement.removeEventListener("pointerup", onPointerUp);
+      renderer.domElement.removeEventListener("pointercancel", onPointerUp);
+      renderer.dispose();
+      renderer.domElement.remove();
+      scene.traverse((object) => {
+        if (object instanceof THREE.Mesh || object instanceof THREE.Line || object instanceof THREE.Points) {
+          object.geometry?.dispose();
+          const material = object.material;
+          if (material) {
+            disposeMaterial(material);
+          }
+        }
+      });
+    };
+  }, [calculations.panes, config]);
+
+  return <div className="render-canvas-host" ref={hostRef} />;
 }
 
 export function ProductionRenderer({
@@ -515,6 +1023,19 @@ export function ProductionRenderer({
     setConfig((previous) => ({ ...previous, [key]: next }));
   }
 
+  const profileYield = Math.round(
+    clampNumber(
+      (calculations.profileMeters / Math.max(1, (calculations.bars * config.stockProfileLength) / 1000)) * 100,
+      1,
+      100
+    )
+  );
+  const clearOpening = `${calculations.glassWidth.toFixed(0)} x ${calculations.glassHeight.toFixed(0)} mm`;
+  const readyPieces = Math.min(
+    config.quantity,
+    Math.floor(stockSignals.profiles / Math.max(1, calculations.profileMeters / config.quantity))
+  );
+
   return (
     <section className="render-production">
       <div className="render-hero">
@@ -532,11 +1053,46 @@ export function ProductionRenderer({
 
       <div className="render-workbench">
         <div className="render-stage" aria-label="3D production render">
-          <div className="stage-grid" />
-          <div className="stage-camera">
-            {renderProductModel()}
+          <ProductionThreeScene config={config} calculations={calculations} />
+          <div className="render-stage-glow" />
+          <div className="render-hud render-hud-main">
+            <span>{t.liveEngine}</span>
+            <strong>{config.width} x {config.height} x {config.depth} mm</strong>
           </div>
-          <div className="stage-shadow" />
+          <div className="render-hud render-hud-quality">
+            <span>{t.studioQuality}</span>
+            <strong>{config.series}</strong>
+          </div>
+          <div className="render-stage-metrics">
+            <span>
+              <small>{t.profileDepth}</small>
+              <strong>{config.frameWidth} mm</strong>
+            </span>
+            <span>
+              <small>{t.clearOpening}</small>
+              <strong>{clearOpening}</strong>
+            </span>
+            <span>
+              <small>{t.stockYield}</small>
+              <strong>{profileYield}%</strong>
+            </span>
+          </div>
+          <div className="render-material-strip">
+            <span style={{ backgroundColor: productColor(config.outsideColor) }} />
+            <span style={{ backgroundColor: productColor(config.insideColor, productColor(config.outsideColor)) }} />
+            <span className={calculations.glassFits ? "ok" : "risk"} />
+            <strong>{t.materialStack}</strong>
+          </div>
+          <div className="render-cut-map" aria-label={t.cncPath}>
+            <div>
+              <span style={{ width: `${profileYield}%` }} />
+            </div>
+            <small>{t.cncPath}: {calculations.bars} {t.bars} / {calculations.profileWaste.toFixed(2)} m {t.waste}</small>
+          </div>
+          <div className="render-ready-chip">
+            <Factory size={15} />
+            <span>{t.readyPieces}: {readyPieces}/{config.quantity}</span>
+          </div>
         </div>
 
         <div className="render-controls">

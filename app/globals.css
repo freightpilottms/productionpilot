@@ -230,7 +230,7 @@ textarea:focus {
   align-items: start;
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   display: grid;
-  gap: 10px;
+  gap: 4px;
   padding-bottom: 18px;
 }
 
@@ -266,6 +266,10 @@ textarea:focus {
 .sidebar-status small {
   color: rgba(238, 245, 239, 0.68);
   font-size: 12px;
+}
+
+.brand-block span {
+  margin-left: 2px;
 }
 
 .side-nav {
@@ -1066,14 +1070,211 @@ textarea:focus {
 
 .render-stage {
   background:
-    radial-gradient(circle at 54% 28%, rgba(255, 255, 255, 0.9), transparent 34%),
-    linear-gradient(160deg, #e8efea, #dce8e2 58%, #cbded5);
+    radial-gradient(circle at 28% 14%, rgba(249, 115, 22, 0.22), transparent 24%),
+    radial-gradient(circle at 78% 24%, rgba(73, 181, 213, 0.22), transparent 28%),
+    linear-gradient(145deg, #121d25 0%, #101820 46%, #17242d 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
+  box-shadow:
+    0 28px 60px rgba(16, 24, 32, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   height: clamp(520px, calc(100vh - 220px), 720px);
+  isolation: isolate;
   min-height: 0;
   overflow: hidden;
   position: sticky;
+  touch-action: none;
   top: 18px;
+}
+
+.render-stage::before {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px);
+  background-size: 48px 48px;
+  content: "";
+  inset: 0;
+  opacity: 0.38;
+  pointer-events: none;
+  position: absolute;
+  z-index: 0;
+}
+
+.render-stage::after {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 24%),
+    radial-gradient(ellipse at center, transparent 48%, rgba(0, 0, 0, 0.34));
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 3;
+}
+
+.render-canvas-host {
+  inset: 0;
+  position: absolute;
+  z-index: 1;
+}
+
+.render-canvas {
+  cursor: grab;
+  display: block;
+  height: 100%;
+  touch-action: none;
+  width: 100%;
+}
+
+.render-canvas:active {
+  cursor: grabbing;
+}
+
+.render-stage-glow {
+  background: linear-gradient(90deg, transparent, rgba(249, 115, 22, 0.28), transparent);
+  filter: blur(18px);
+  height: 2px;
+  left: 10%;
+  opacity: 0.8;
+  pointer-events: none;
+  position: absolute;
+  right: 10%;
+  top: 18%;
+  z-index: 2;
+}
+
+.render-hud,
+.render-stage-metrics,
+.render-material-strip,
+.render-cut-map,
+.render-ready-chip {
+  backdrop-filter: blur(18px);
+  background: rgba(16, 24, 32, 0.68);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #f8fff9;
+  position: absolute;
+  z-index: 4;
+}
+
+.render-hud {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+}
+
+.render-hud span,
+.render-stage-metrics small,
+.render-cut-map small,
+.render-ready-chip span {
+  color: rgba(248, 255, 249, 0.66);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.render-hud strong,
+.render-stage-metrics strong {
+  font-size: 14px;
+}
+
+.render-hud-main {
+  left: 14px;
+  top: 14px;
+}
+
+.render-hud-quality {
+  right: 14px;
+  text-align: right;
+  top: 14px;
+}
+
+.render-stage-metrics {
+  bottom: 14px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  left: 14px;
+  padding: 10px;
+  right: 14px;
+}
+
+.render-stage-metrics span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.render-stage-metrics strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.render-material-strip {
+  align-items: center;
+  display: flex;
+  gap: 7px;
+  left: 14px;
+  padding: 8px 10px;
+  top: 82px;
+}
+
+.render-material-strip span {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  display: block;
+  height: 18px;
+  width: 18px;
+}
+
+.render-material-strip .ok {
+  background: rgba(126, 220, 170, 0.82);
+}
+
+.render-material-strip .risk {
+  background: rgba(220, 92, 74, 0.82);
+}
+
+.render-material-strip strong {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.render-cut-map {
+  bottom: 92px;
+  display: grid;
+  gap: 7px;
+  max-width: min(360px, calc(100% - 28px));
+  padding: 10px;
+  right: 14px;
+  width: 42%;
+}
+
+.render-cut-map div {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  height: 7px;
+  overflow: hidden;
+}
+
+.render-cut-map div span {
+  background: linear-gradient(90deg, var(--brand-orange), #ffbf75);
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+}
+
+.render-ready-chip {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  padding: 9px 11px;
+  right: 14px;
+  top: 82px;
+}
+
+.render-ready-chip svg {
+  color: var(--brand-orange);
 }
 
 .stage-grid {
@@ -1815,8 +2016,28 @@ meter {
   }
 
   .render-stage {
-    height: 420px;
+    height: 500px;
     min-height: 0;
+  }
+
+  .render-hud-quality,
+  .render-ready-chip {
+    display: none;
+  }
+
+  .render-material-strip {
+    right: 14px;
+  }
+
+  .render-cut-map {
+    bottom: 104px;
+    left: 14px;
+    right: 14px;
+    width: auto;
+  }
+
+  .render-stage-metrics {
+    grid-template-columns: 1fr;
   }
 
   .inventory-row,

@@ -40,7 +40,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import type { ChangeEvent, FormEvent, ReactNode } from "react";
+import type { ChangeEvent, FormEvent, ReactNode, SyntheticEvent } from "react";
 import { ProductionRenderer } from "../components/ProductionRenderer";
 import { legacyCatalog } from "./_domain/legacyCatalog";
 import {
@@ -432,6 +432,13 @@ function orderSearchText(order: Order) {
 
 function classNames(...parts: Array<string | false | undefined>) {
   return parts.filter(Boolean).join(" ");
+}
+
+function handleLogoFallback(event: SyntheticEvent<HTMLImageElement>) {
+  const image = event.currentTarget;
+  if (!image.src.endsWith("/productionpilot-logo.svg")) {
+    image.src = "/productionpilot-logo.svg";
+  }
 }
 
 function IconButton({
@@ -1169,6 +1176,7 @@ export default function ProductionPilot() {
           <img
             alt="ProductionPilot"
             className="brand-logo"
+            onError={handleLogoFallback}
             src="/test.png"
           />
           <span>Production Management Systems</span>
@@ -1209,6 +1217,7 @@ export default function ProductionPilot() {
             <img
               alt="ProductionPilot"
               className="topbar-logo"
+              onError={handleLogoFallback}
               src="/test.png"
             />
             <div>

@@ -16,7 +16,12 @@ import {
 } from "lucide-react";
 import * as THREE from "three";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, ChangeEvent, PointerEvent as ReactPointerEvent } from "react";
+import type {
+  CSSProperties,
+  ChangeEvent,
+  KeyboardEvent,
+  PointerEvent as ReactPointerEvent
+} from "react";
 import { legacyCatalog } from "../app/_domain/legacyCatalog";
 import type { Language } from "../app/_domain/i18n";
 
@@ -1051,6 +1056,9 @@ export function ProductionRenderer({
     scale: 52,
     rotation: 0
   });
+  const [draftNumbers, setDraftNumbers] = useState<
+    Partial<Record<NumericConfigKey, string>>
+  >({});
   const [isDraggingPlacement, setIsDraggingPlacement] = useState(false);
   const placementRef = useRef<HTMLDivElement | null>(null);
 
@@ -1231,8 +1239,57 @@ export function ProductionRenderer({
   function numberUpdate(key: NumericConfigKey, value: string) {
     const bounds = dimensionBounds[key];
     const numericValue = Number(value);
-    const next = Number.isFinite(numericValue) ? clampNumber(numericValue, bounds.min, bounds.max) : bounds.min;
-    setConfig((previous) => normalizeConfig({ ...previous, [key]: next }));
+    setDraftNumbers((previous) => ({ ...previous, [key]: value }));
+
+    if (!value.trim() || !Number.isFinite(numericValue)) {
+      return;
+    }
+
+    if (numericValue >= bounds.min) {
+      setConfig((previous) =>
+        normalizeConfig({
+          ...previous,
+          [key]: Math.min(numericValue, bounds.max)
+        })
+      );
+    }
+  }
+
+  function commitNumber(key: NumericConfigKey) {
+    setConfig((previous) => {
+      const bounds = dimensionBounds[key];
+      const raw = draftNumbers[key] ?? String(previous[key]);
+      const numericValue = Number(raw);
+      const next = Number.isFinite(numericValue)
+        ? clampNumber(numericValue, bounds.min, bounds.max)
+        : previous[key];
+
+      return normalizeConfig({ ...previous, [key]: next });
+    });
+    setDraftNumbers((previous) => {
+      const next = { ...previous };
+      delete next[key];
+      return next;
+    });
+  }
+
+  function numericInputProps(key: NumericConfigKey, max = dimensionBounds[key].max) {
+    return {
+      inputMode: "numeric" as const,
+      max,
+      min: dimensionBounds[key].min,
+      onBlur: () => commitNumber(key),
+      onChange: (event: ChangeEvent<HTMLInputElement>) =>
+        numberUpdate(key, event.target.value),
+      onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => {
+        if (event.key === "Enter") {
+          event.currentTarget.blur();
+        }
+      },
+      step: 1,
+      type: "number",
+      value: draftNumbers[key] ?? String(config[key])
+    };
   }
 
   function updatePlacement<K extends keyof PlacementState>(key: K, value: PlacementState[K]) {
@@ -1442,19 +1499,19 @@ export function ProductionRenderer({
             <div className="control-grid">
               <label>
                 <span>{t.width} mm</span>
-                <input min={dimensionBounds.width.min} max={dimensionBounds.width.max} type="number" value={config.width} onChange={(event) => numberUpdate("width", event.target.value)} />
+                <input {...numericInputProps("width")} />
               </label>
               <label>
                 <span>{t.height} mm</span>
-                <input min={dimensionBounds.height.min} max={dimensionBounds.height.max} type="number" value={config.height} onChange={(event) => numberUpdate("height", event.target.value)} />
+                <input {...numericInputProps("height")} />
               </label>
               <label>
                 <span>{t.depth} mm</span>
-                <input min={dimensionBounds.depth.min} max={dimensionBounds.depth.max} type="number" value={config.depth} onChange={(event) => numberUpdate("depth", event.target.value)} />
+                <input {...numericInputProps("depth")} />
               </label>
               <label>
                 <span>{t.frame} mm</span>
-                <input min={dimensionBounds.frameWidth.min} max={maxFrameWidth(config)} type="number" value={config.frameWidth} onChange={(event) => numberUpdate("frameWidth", event.target.value)} />
+                <input {...numericInputProps("frameWidth", maxFrameWidth(config))} />
               </label>
             </div>
             <div className={classNames("geometry-check", isGeometryValid ? "ok" : "risk")}>
@@ -1474,11 +1531,11 @@ export function ProductionRenderer({
             <div className="control-grid">
               <label>
                 <span>{t.vDivisions}</span>
-                <input min={dimensionBounds.verticalDivisions.min} max={dimensionBounds.verticalDivisions.max} type="number" value={config.verticalDivisions} onChange={(event) => numberUpdate("verticalDivisions", event.target.value)} />
+                <input {...numericInputProps("verticalDivisions")} />
               </label>
               <label>
                 <span>{t.hDivisions}</span>
-                <input min={dimensionBounds.horizontalDivisions.min} max={dimensionBounds.horizontalDivisions.max} type="number" value={config.horizontalDivisions} onChange={(event) => numberUpdate("horizontalDivisions", event.target.value)} />
+                <input {...numericInputProps("horizontalDivisions")} />
               </label>
               <label>
                 <span>{t.opening}</span>
@@ -1492,7 +1549,7 @@ export function ProductionRenderer({
               </label>
               <label>
                 <span>{t.qty}</span>
-                <input min={dimensionBounds.quantity.min} max={dimensionBounds.quantity.max} type="number" value={config.quantity} onChange={(event) => numberUpdate("quantity", event.target.value)} />
+                <input {...numericInputProps("quantity")} />
               </label>
             </div>
           </div>
@@ -1564,23 +1621,23 @@ export function ProductionRenderer({
             <div className="control-grid">
               <label>
                 <span>{t.profile} mm</span>
-                <input min={dimensionBounds.stockProfileLength.min} max={dimensionBounds.stockProfileLength.max} type="number" value={config.stockProfileLength} onChange={(event) => numberUpdate("stockProfileLength", event.target.value)} />
+                <input {...numericInputProps("stockProfileLength")} />
               </label>
               <label>
                 <span>{t.glass} W</span>
-                <input min={dimensionBounds.stockGlassWidth.min} max={dimensionBounds.stockGlassWidth.max} type="number" value={config.stockGlassWidth} onChange={(event) => numberUpdate("stockGlassWidth", event.target.value)} />
+                <input {...numericInputProps("stockGlassWidth")} />
               </label>
               <label>
                 <span>{t.glass} H</span>
-                <input min={dimensionBounds.stockGlassHeight.min} max={dimensionBounds.stockGlassHeight.max} type="number" value={config.stockGlassHeight} onChange={(event) => numberUpdate("stockGlassHeight", event.target.value)} />
+                <input {...numericInputProps("stockGlassHeight")} />
               </label>
               <label>
                 <span>{t.panel} W</span>
-                <input min={dimensionBounds.stockPanelWidth.min} max={dimensionBounds.stockPanelWidth.max} type="number" value={config.stockPanelWidth} onChange={(event) => numberUpdate("stockPanelWidth", event.target.value)} />
+                <input {...numericInputProps("stockPanelWidth")} />
               </label>
               <label>
                 <span>{t.panel} H</span>
-                <input min={dimensionBounds.stockPanelHeight.min} max={dimensionBounds.stockPanelHeight.max} type="number" value={config.stockPanelHeight} onChange={(event) => numberUpdate("stockPanelHeight", event.target.value)} />
+                <input {...numericInputProps("stockPanelHeight")} />
               </label>
             </div>
           </div>

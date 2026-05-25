@@ -28,7 +28,6 @@ import {
   RefreshCw,
   Save,
   Search,
-  Settings,
   ShieldCheck,
   Timer,
   Trash2,
@@ -59,8 +58,7 @@ type View =
   | "documents"
   | "stock"
   | "finance"
-  | "workers"
-  | "settings";
+  | "workers";
 
 type ProductionState =
   | "U PRIPREMI"
@@ -151,6 +149,9 @@ type StockItem = {
   reserved: number;
   reorderPoint: number;
   value: number;
+  textureImage?: string;
+  textureName?: string;
+  textureUploadedAt?: string;
 };
 
 type LedgerItem = {
@@ -252,6 +253,78 @@ const documentLabels: Record<DocumentKey, string> = {
   transportSlika2: "Transport slika 2"
 };
 
+const localizedDocumentLabels: Record<Language, Record<DocumentKey, string>> = {
+  bhs: documentLabels,
+  de: {
+    skice: "Skizzen",
+    reznaLista: "Zuschnittliste",
+    specMaterijala: "Materialspezifikation",
+    ponudaUgovor: "Angebot/Vertrag",
+    originalneMjere: "Originalmasse",
+    profil: "Profilbestellung",
+    ojacanja: "Verstaerkungsbestellung",
+    okovi: "Beschlagbestellung",
+    staklo: "Glasbestellung",
+    panel: "Paneelbestellung",
+    transport: "Transport",
+    izvoz: "Export",
+    proforma: "Proforma",
+    transportSlika1: "Transportbild 1",
+    transportSlika2: "Transportbild 2"
+  },
+  it: {
+    skice: "Schizzi",
+    reznaLista: "Lista taglio",
+    specMaterijala: "Spec. materiali",
+    ponudaUgovor: "Offerta/Contratto",
+    originalneMjere: "Misure originali",
+    profil: "Ordine profili",
+    ojacanja: "Ordine rinforzi",
+    okovi: "Ordine ferramenta",
+    staklo: "Ordine vetro",
+    panel: "Ordine pannelli",
+    transport: "Trasporto",
+    izvoz: "Export",
+    proforma: "Proforma",
+    transportSlika1: "Foto trasporto 1",
+    transportSlika2: "Foto trasporto 2"
+  },
+  es: {
+    skice: "Bocetos",
+    reznaLista: "Lista de corte",
+    specMaterijala: "Esp. materiales",
+    ponudaUgovor: "Oferta/Contrato",
+    originalneMjere: "Medidas originales",
+    profil: "Pedido perfiles",
+    ojacanja: "Pedido refuerzos",
+    okovi: "Pedido herrajes",
+    staklo: "Pedido vidrio",
+    panel: "Pedido paneles",
+    transport: "Transporte",
+    izvoz: "Exportacion",
+    proforma: "Proforma",
+    transportSlika1: "Foto transporte 1",
+    transportSlika2: "Foto transporte 2"
+  },
+  en: {
+    skice: "Sketches",
+    reznaLista: "Cut list",
+    specMaterijala: "Material spec",
+    ponudaUgovor: "Offer/Contract",
+    originalneMjere: "Original measures",
+    profil: "Profile order",
+    ojacanja: "Reinforcement order",
+    okovi: "Hardware order",
+    staklo: "Glass order",
+    panel: "Panel order",
+    transport: "Transport",
+    izvoz: "Export",
+    proforma: "Proforma",
+    transportSlika1: "Transport photo 1",
+    transportSlika2: "Transport photo 2"
+  }
+};
+
 const documentKeys = Object.keys(documentLabels) as DocumentKey[];
 
 const users: User[] = [
@@ -269,8 +342,7 @@ const navItems: Array<{ id: View; labelKey: TranslationKey; icon: LucideIcon }> 
   { id: "documents", labelKey: "documents", icon: FileText },
   { id: "stock", labelKey: "stock", icon: Boxes },
   { id: "finance", labelKey: "finance", icon: Wallet },
-  { id: "workers", labelKey: "workers", icon: Users },
-  { id: "settings", labelKey: "deploy", icon: Settings }
+  { id: "workers", labelKey: "workers", icon: Users }
 ];
 
 const currency = new Intl.NumberFormat("en-US", {
@@ -279,12 +351,27 @@ const currency = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0
 });
 
-const languageLocales: Record<Language, string> = {
-  bhs: "bs-BA",
-  de: "de-DE",
-  it: "it-IT",
-  es: "es-ES",
-  en: "en-US"
+const dateLabels: Record<Language, { months: string[]; weekdays: string[] }> = {
+  bhs: {
+    months: ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt", "nov", "dec"],
+    weekdays: ["ned", "pon", "uto", "sri", "cet", "pet", "sub"]
+  },
+  de: {
+    months: ["Jan", "Feb", "Mar", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"],
+    weekdays: ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"]
+  },
+  it: {
+    months: ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"],
+    weekdays: ["dom", "lun", "mar", "mer", "gio", "ven", "sab"]
+  },
+  es: {
+    months: ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"],
+    weekdays: ["dom", "lun", "mar", "mie", "jue", "vie", "sab"]
+  },
+  en: {
+    months: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+    weekdays: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+  }
 };
 
 function toDateInput(date: Date) {
@@ -309,6 +396,44 @@ function createDocuments(
     };
     return acc;
   }, {} as Record<DocumentKey, OrderDocument>);
+}
+
+function createMaterialTextureDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Texture image could not be read."));
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        reject(new Error("Texture image is not readable."));
+        return;
+      }
+
+      const image = new Image();
+      image.onload = () => {
+        const maxSize = 1100;
+        const scale = Math.min(1, maxSize / Math.max(image.naturalWidth, image.naturalHeight));
+        const width = Math.max(1, Math.round(image.naturalWidth * scale));
+        const height = Math.max(1, Math.round(image.naturalHeight * scale));
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+
+        if (!context) {
+          reject(new Error("Texture image could not be processed."));
+          return;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        context.imageSmoothingEnabled = true;
+        context.imageSmoothingQuality = "high";
+        context.drawImage(image, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", 0.9));
+      };
+      image.onerror = () => reject(new Error("Texture image could not be decoded."));
+      image.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 function createEmptyForm(userName = "SEM"): OrderForm {
@@ -896,10 +1021,10 @@ export default function ProductionPilot() {
     );
   }, [ledger]);
 
-  function selectOrder(order: Order) {
+  function selectOrder(order: Order, nextView: View = "orders") {
     setSelectedOrderId(order.id);
     setForm(orderToForm(order));
-    setActiveView("orders");
+    setActiveView(nextView);
   }
 
   function updateForm<K extends keyof OrderForm>(key: K, value: OrderForm[K]) {
@@ -1037,13 +1162,13 @@ export default function ProductionPilot() {
             : order
         )
       );
-      setNotice(`${documentLabels[key]} attached to order ${selectedOrderId}.`);
+      setNotice(`${documentLabel(key)} attached to order ${selectedOrderId}.`);
     }
     event.target.value = "";
   }
 
   function removeDocument(key: DocumentKey) {
-    const nextDocument: OrderDocument = { key, label: documentLabels[key] };
+    const nextDocument: OrderDocument = { key, label: documentLabel(key) };
     setForm((previous) => ({
       ...previous,
       documents: { ...previous.documents, [key]: nextDocument }
@@ -1060,7 +1185,7 @@ export default function ProductionPilot() {
         )
       );
     }
-    setNotice(`${documentLabels[key]} removed from draft.`);
+    setNotice(`${documentLabel(key)} removed from order ${selectedOrderId}.`);
   }
 
   function moveStock(itemId: string, direction: "receive" | "issue") {
@@ -1076,6 +1201,54 @@ export default function ProductionPilot() {
       })
     );
     setNotice(direction === "receive" ? "Stock received." : "Stock issued.");
+  }
+
+  async function attachStockTexture(
+    itemId: string,
+    event: ChangeEvent<HTMLInputElement>
+  ) {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    try {
+      const textureImage = await createMaterialTextureDataUrl(file);
+      setStock((previous) =>
+        previous.map((item) =>
+          item.id === itemId
+            ? {
+                ...item,
+                textureImage,
+                textureName: file.name,
+                textureUploadedAt: new Date().toISOString()
+              }
+            : item
+        )
+      );
+      setNotice(`${t("materialTexture")} ${file.name} -> ${itemId}.`);
+    } catch {
+      setNotice("Texture image could not be saved.");
+    } finally {
+      input.value = "";
+    }
+  }
+
+  function removeStockTexture(itemId: string) {
+    setStock((previous) =>
+      previous.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              textureImage: undefined,
+              textureName: undefined,
+              textureUploadedAt: undefined
+            }
+          : item
+      )
+    );
+    setNotice(`${t("materialTexture")} removed from ${itemId}.`);
   }
 
   function recordPayment(itemId: string) {
@@ -1126,48 +1299,31 @@ export default function ProductionPilot() {
     setNotice("Workspace data exported.");
   }
 
-  function importData(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const parsed = JSON.parse(String(reader.result)) as PersistedState;
-        setOrders(parsed.orders ?? seedOrders);
-        setStock(parsed.stock ?? seedStock);
-        setLedger(parsed.ledger ?? seedLedger);
-        setWorkers(parsed.workers ?? seedWorkers);
-        setSelectedOrderId(parsed.orders?.[0]?.id ?? "");
-        setNotice("Workspace data imported.");
-      } catch {
-        setNotice("Import failed. The selected file is not valid ProductionPilot JSON.");
-      }
-    };
-    reader.readAsText(file);
-    event.target.value = "";
-  }
-
-  function resetDemoData() {
-    setOrders(seedOrders);
-    setStock(seedStock);
-    setLedger(seedLedger);
-    setWorkers(seedWorkers);
-    setSelectedOrderId(seedOrders[0]?.id ?? "");
-    setNotice("Demo data restored.");
-  }
-
   const activeNav = navItems.find((item) => item.id === activeView);
   const viewTitle = activeNav ? t(activeNav.labelKey) : t("control");
-  const formattedDate = now.toLocaleDateString(languageLocales[language], {
-    day: "2-digit",
-    month: "short",
-    weekday: "long"
-  });
-  const compactDate = now.toLocaleDateString(languageLocales[language], {
-    day: "2-digit",
-    month: "short",
-    weekday: "short"
-  });
+  const localizedDate = dateLabels[language];
+  const formattedDate = `${String(now.getDate()).padStart(2, "0")} ${
+    localizedDate.months[now.getMonth()]
+  }, ${localizedDate.weekdays[now.getDay()]}`;
+  const compactDate = formattedDate;
+  const documentLabel = (key: DocumentKey) =>
+    localizedDocumentLabels[language][key] ?? documentLabels[key];
+  const ledgerKindLabel = (kind: LedgerItem["kind"]) =>
+    kind === "supplier" ? t("supplier") : t("customer");
+  const workerStatusLabel = (status: WorkerShift["status"]) =>
+    status === "Active"
+      ? t("activeStatus")
+      : status === "Ready"
+        ? t("readyStatus")
+        : t("pausedStatus");
+  const workerStationLabel = (station: string) => {
+    const normalized = station.toLowerCase();
+    if (normalized === "cutting") return t("cutting");
+    if (normalized === "welding") return t("welding");
+    if (normalized === "packing") return t("packing");
+    if (normalized === "quality") return t("quality");
+    return station;
+  };
 
   return (
     <main className="app-shell">
@@ -1177,7 +1333,7 @@ export default function ProductionPilot() {
             alt="ProductionPilot"
             className="brand-logo"
             onError={handleLogoFallback}
-            src="/test.png"
+            src="/productionpilot-logo.svg"
           />
           <span>Production Management Systems</span>
         </div>
@@ -1218,9 +1374,9 @@ export default function ProductionPilot() {
               alt="ProductionPilot"
               className="topbar-logo"
               onError={handleLogoFallback}
-              src="/test.png"
+              src="/productionpilot-logo.svg"
             />
-            <div>
+            <div className="topbar-title-copy">
               <p className="topbar-date">{formattedDate}</p>
               <h2>{viewTitle}</h2>
             </div>
@@ -1292,6 +1448,11 @@ export default function ProductionPilot() {
           })}
         </nav>
 
+        <div className="body-view-heading">
+          <p>{formattedDate}</p>
+          <h1>{viewTitle}</h1>
+        </div>
+
         <div className="notice-bar">
           <Bell size={16} />
           <span>{notice}</span>
@@ -1305,7 +1466,10 @@ export default function ProductionPilot() {
         {activeView === "stock" ? renderStock() : null}
         {activeView === "finance" ? renderFinance() : null}
         {activeView === "workers" ? renderWorkers() : null}
-        {activeView === "settings" ? renderSettings() : null}
+
+        <footer className="app-footer">
+          Copyright 2026 AK Solutions &amp; ZEDA&apos;S Group LTD. All rights reserved.
+        </footer>
       </section>
     </main>
   );
@@ -1335,13 +1499,13 @@ export default function ProductionPilot() {
             <FileText size={22} />
             <span>{t("docCoverage")}</span>
             <strong>{stats.avgDocs}%</strong>
-            <small>Across all order packs</small>
+            <small>{t("acrossAllOrderPacks")}</small>
           </article>
           <article className="metric-card accent-red">
             <AlertTriangle size={22} />
             <span>{t("duePressure")}</span>
             <strong>{stats.dueSoon}</strong>
-            <small>Orders due in 3 days</small>
+            <small>{t("ordersDueIn3Days")}</small>
           </article>
         </div>
 
@@ -1349,7 +1513,7 @@ export default function ProductionPilot() {
           <section className="panel wide-panel">
             <div className="panel-heading">
               <div>
-                <p>Priority flow</p>
+                <p>{t("priorityFlow")}</p>
                 <h3>{t("productionPipeline")}</h3>
               </div>
               <Activity size={20} />
@@ -1368,9 +1532,9 @@ export default function ProductionPilot() {
                     }}
                     type="button"
                   >
-                    <span>{state}</span>
+                    <span>{stateTranslations[language][state] ?? state}</span>
                     <strong>{units}</strong>
-                    <small>{stateOrders.length} orders</small>
+                    <small>{stateOrders.length} {t("ordersCount")}</small>
                   </button>
                 );
               })}
@@ -1380,7 +1544,7 @@ export default function ProductionPilot() {
           <section className="panel">
             <div className="panel-heading">
               <div>
-                <p>Attention</p>
+                <p>{t("attention")}</p>
                 <h3>{t("nextMoves")}</h3>
               </div>
               <CalendarClock size={20} />
@@ -1407,22 +1571,22 @@ export default function ProductionPilot() {
           <section className="panel">
             <div className="panel-heading">
               <div>
-                <p>Money</p>
+                <p>{t("finance")}</p>
                 <h3>{t("openLedger")}</h3>
               </div>
               <Wallet size={20} />
             </div>
             <div className="finance-strip">
               <div>
-                <span>Receivable</span>
+                <span>{t("receivable")}</span>
                 <strong>{currency.format(financeSummary.receivable)}</strong>
               </div>
               <div>
-                <span>Payable</span>
+                <span>{t("payable")}</span>
                 <strong>{currency.format(financeSummary.payable)}</strong>
               </div>
               <div>
-                <span>Overdue</span>
+                <span>{t("overdue")}</span>
                 <strong>{currency.format(financeSummary.overdue)}</strong>
               </div>
             </div>
@@ -1432,7 +1596,7 @@ export default function ProductionPilot() {
             <div className="panel-heading">
               <div>
                 <p>{t("shopFloor")}</p>
-                <h3>Live worker load</h3>
+                <h3>{t("workerTimes")}</h3>
               </div>
               <HardHat size={20} />
             </div>
@@ -1445,7 +1609,7 @@ export default function ProductionPilot() {
                   type="button"
                 >
                   <span>{worker.name}</span>
-                  <strong>{worker.station}</strong>
+                  <strong>{workerStationLabel(worker.station)}</strong>
                   <small>{worker.activeOrderId} - {worker.efficiency}%</small>
                 </button>
               ))}
@@ -1463,7 +1627,7 @@ export default function ProductionPilot() {
           <div className="table-toolbar">
             <div>
               <h3>{t("orderBoard")}</h3>
-              <p>{filteredOrders.length} rows sorted by production priority</p>
+              <p>{filteredOrders.length} {t("rowsSortedByPriority")}</p>
             </div>
             <label className="select-filter">
               <Filter size={16} />
@@ -1486,15 +1650,15 @@ export default function ProductionPilot() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Nalog</th>
-                  <th>Client</th>
-                  <th>Requester</th>
-                  <th>Series</th>
-                  <th>Qty</th>
-                  <th>State</th>
-                  <th>Delivery</th>
-                  <th>Docs</th>
-                  <th aria-label="Actions" />
+                  <th>{t("orderNumber")}</th>
+                  <th>{t("client")}</th>
+                  <th>{t("requester")}</th>
+                  <th>{t("series")}</th>
+                  <th>{t("quantity")}</th>
+                  <th>{t("state")}</th>
+                  <th>{t("delivery")}</th>
+                  <th>{t("docs")}</th>
+                  <th aria-label={t("actions")} />
                 </tr>
               </thead>
               <tbody>
@@ -1529,7 +1693,7 @@ export default function ProductionPilot() {
                     </td>
                     <td>{documentCoverage(order)}%</td>
                     <td>
-                      <IconButton onClick={() => quickAdvance(order)} title="Advance order">
+                      <IconButton onClick={() => quickAdvance(order)} title={t("advanceOrder")}>
                         <ChevronRight size={16} />
                       </IconButton>
                     </td>
@@ -1544,38 +1708,38 @@ export default function ProductionPilot() {
           <div className="editor-heading">
             <div>
               <p>{selectedOrder ? t("selectedOrder") : t("newOrder")}</p>
-              <h3>{form.id || "Draft"}</h3>
+              <h3>{form.id || t("draft")}</h3>
             </div>
             <StatusPill language={language} state={form.state} />
           </div>
 
           <div className="form-grid">
-            <Field label="Nalog">
+            <Field label={t("orderNumber")}>
               <input
                 onChange={(event) => updateForm("id", formatOrderId(event.target.value))}
                 value={form.id}
               />
             </Field>
-            <Field label="Order date">
+            <Field label={t("orderDate")}>
               <input
                 onChange={(event) => updateForm("orderDate", event.target.value)}
                 type="date"
                 value={form.orderDate}
               />
             </Field>
-            <Field label="Client">
+            <Field label={t("client")}>
               <input
                 onChange={(event) => updateForm("client", event.target.value)}
                 value={form.client}
               />
             </Field>
-            <Field label="Requester">
+            <Field label={t("requester")}>
               <input
                 onChange={(event) => updateForm("requester", event.target.value)}
                 value={form.requester}
               />
             </Field>
-            <Field label="Series">
+            <Field label={t("series")}>
               <select
                 onChange={(event) => updateForm("series", event.target.value)}
                 value={form.series}
@@ -1588,7 +1752,7 @@ export default function ProductionPilot() {
                 ))}
               </select>
             </Field>
-            <Field label="Profile">
+            <Field label={t("profile")}>
               <select
                 onChange={(event) => updateForm("profile", event.target.value)}
                 value={form.profile}
@@ -1601,7 +1765,7 @@ export default function ProductionPilot() {
                 ))}
               </select>
             </Field>
-            <Field label="Quantity">
+            <Field label={t("quantity")}>
               <input
                 min="0"
                 onChange={(event) => updateForm("quantity", event.target.value)}
@@ -1609,7 +1773,7 @@ export default function ProductionPilot() {
                 value={form.quantity}
               />
             </Field>
-            <Field label="State">
+            <Field label={t("state")}>
               <select
                 onChange={(event) => updateForm("state", event.target.value as ProductionState)}
                 value={form.state}
@@ -1621,21 +1785,21 @@ export default function ProductionPilot() {
                 ))}
               </select>
             </Field>
-            <Field label="Manufacture">
+            <Field label={t("manufacture")}>
               <input
                 onChange={(event) => updateForm("manufacturingDate", event.target.value)}
                 type="date"
                 value={form.manufacturingDate}
               />
             </Field>
-            <Field label="Delivery">
+            <Field label={t("delivery")}>
               <input
                 onChange={(event) => updateForm("deliveryDate", event.target.value)}
                 type="date"
                 value={form.deliveryDate}
               />
             </Field>
-            <Field label="Hours">
+            <Field label={t("hours")}>
               <input
                 min="0"
                 onChange={(event) => updateForm("productionHours", event.target.value)}
@@ -1644,10 +1808,10 @@ export default function ProductionPilot() {
                 value={form.productionHours}
               />
             </Field>
-            <Field label="User">
+            <Field label={t("user")}>
               <input readOnly value={currentUser.name} />
             </Field>
-            <Field label="Glass">
+            <Field label={t("glass")}>
               <select
                 onChange={(event) => updateForm("glass", event.target.value)}
                 value={form.glass}
@@ -1660,7 +1824,7 @@ export default function ProductionPilot() {
                 ))}
               </select>
             </Field>
-            <Field label="Hardware">
+            <Field label={t("hardware")}>
               <select
                 onChange={(event) => updateForm("hardware", event.target.value)}
                 value={form.hardware}
@@ -1673,7 +1837,7 @@ export default function ProductionPilot() {
                 ))}
               </select>
             </Field>
-            <Field label="Color in">
+            <Field label={t("colorIn")}>
               <select
                 onChange={(event) => updateForm("colorInt", event.target.value)}
                 value={form.colorInt}
@@ -1686,7 +1850,7 @@ export default function ProductionPilot() {
                 ))}
               </select>
             </Field>
-            <Field label="Color out">
+            <Field label={t("colorOut")}>
               <select
                 onChange={(event) => updateForm("colorExt", event.target.value)}
                 value={form.colorExt}
@@ -1699,7 +1863,7 @@ export default function ProductionPilot() {
                 ))}
               </select>
             </Field>
-            <Field label="Reinforcement">
+            <Field label={t("reinforcement")}>
               <select
                 onChange={(event) => updateForm("reinforcement", event.target.value)}
                 value={form.reinforcement}
@@ -1712,7 +1876,7 @@ export default function ProductionPilot() {
                 ))}
               </select>
             </Field>
-            <Field label="Panel">
+            <Field label={t("panel")}>
               <select
                 onChange={(event) => updateForm("panel", event.target.value)}
                 value={form.panel}
@@ -1725,19 +1889,19 @@ export default function ProductionPilot() {
                 ))}
               </select>
             </Field>
-            <Field label="Driver">
+            <Field label={t("driver")}>
               <input
                 onChange={(event) => updateForm("driverName", event.target.value)}
                 value={form.driverName}
               />
             </Field>
-            <Field label="Driver phone">
+            <Field label={t("driverPhone")}>
               <input
                 onChange={(event) => updateForm("driverPhone", event.target.value)}
                 value={form.driverPhone}
               />
             </Field>
-            <Field label="Note" wide>
+            <Field label={t("note")} wide>
               <textarea
                 onChange={(event) => updateForm("note", event.target.value)}
                 rows={3}
@@ -1751,7 +1915,7 @@ export default function ProductionPilot() {
               <label
                 className={classNames("doc-chip", form.documents[key]?.fileName && "ready")}
                 key={key}
-                title={form.documents[key]?.fileName ?? documentLabels[key]}
+                title={form.documents[key]?.fileName ?? documentLabel(key)}
               >
                 <input
                   accept={key.includes("Slika") ? "image/*" : "application/pdf,image/*"}
@@ -1759,7 +1923,7 @@ export default function ProductionPilot() {
                   type="file"
                 />
                 <Upload size={14} />
-                <span>{documentLabels[key]}</span>
+                <span>{documentLabel(key)}</span>
                 {form.documents[key]?.fileName ? <Check size={14} /> : null}
               </label>
             ))}
@@ -1971,8 +2135,8 @@ export default function ProductionPilot() {
         <section className="monitor-radar">
           <div className="monitor-section-head">
             <div>
-              <p>Operator radar</p>
-              <h3>Stations, active orders and load</h3>
+              <p>{t("workerTimes")}</p>
+              <h3>{t("stationsActiveOrders")}</h3>
             </div>
             <Gauge size={20} />
           </div>
@@ -1995,9 +2159,9 @@ export default function ProductionPilot() {
                 >
                   <span>
                     <strong>{worker.name}</strong>
-                    <small>{worker.station}</small>
+                    <small>{workerStationLabel(worker.station)}</small>
                   </span>
-                  <em>{worker.status}</em>
+                  <em>{workerStatusLabel(worker.status)}</em>
                   <div className="worker-load-bar" aria-hidden="true">
                     <span style={{ width: `${worker.efficiency}%` }} />
                   </div>
@@ -2011,8 +2175,8 @@ export default function ProductionPilot() {
         <section className="monitor-table-card">
           <div className="monitor-section-head">
             <div>
-              <p>Order intelligence</p>
-              <h3>Detailed live queue</h3>
+              <p>{t("orderBoard")}</p>
+              <h3>{t("productionPipeline")}</h3>
             </div>
             <BarChart3 size={20} />
           </div>
@@ -2020,16 +2184,16 @@ export default function ProductionPilot() {
             <table>
               <thead>
                 <tr>
-                  <th>NALOG</th>
-                  <th>KLIJENT</th>
-                  <th>NARUCILAC</th>
-                  <th>SERIJA</th>
-                  <th>PROFIL</th>
-                  <th>STAKLO</th>
-                  <th>KOLICINA</th>
-                  <th>ISPORUKA</th>
-                  <th>SATI</th>
-                  <th>STANJE</th>
+                  <th>{t("orderNumber")}</th>
+                  <th>{t("client")}</th>
+                  <th>{t("requester")}</th>
+                  <th>{t("series")}</th>
+                  <th>{t("profile")}</th>
+                  <th>{t("glass")}</th>
+                  <th>{t("quantity")}</th>
+                  <th>{t("delivery")}</th>
+                  <th>{t("hours")}</th>
+                  <th>{t("state")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -2066,13 +2230,16 @@ export default function ProductionPilot() {
   }
 
   function renderDocuments() {
+    const documentOrder = selectedOrder;
+    const documentPack = documentOrder?.documents ?? createDocuments();
+
     return (
       <section className="view-stack">
         <div className="panel">
           <div className="panel-heading">
             <div>
-              <p>Document control</p>
-              <h3>Readiness matrix</h3>
+              <p>{t("documentControl")}</p>
+              <h3>{t("readinessMatrix")}</h3>
             </div>
             <FileText size={20} />
           </div>
@@ -2081,7 +2248,7 @@ export default function ProductionPilot() {
               <button
                 className={classNames("doc-order", selectedOrderId === order.id && "selected")}
                 key={order.id}
-                onClick={() => selectOrder(order)}
+                onClick={() => selectOrder(order, "documents")}
                 type="button"
               >
                 <span>
@@ -2098,32 +2265,37 @@ export default function ProductionPilot() {
         <div className="panel">
           <div className="panel-heading">
             <div>
-              <p>{selectedOrder?.id ?? "No order"}</p>
-              <h3>Document pack</h3>
+              <p>
+                {documentOrder
+                  ? `${documentOrder.id} - ${documentOrder.client}`
+                  : t("noOrder")}
+              </p>
+              <h3>{t("documentPack")}</h3>
             </div>
             <Upload size={20} />
           </div>
           <div className="doc-rack">
             {documentKeys.map((key) => (
               <div
-                className={classNames("doc-tile", form.documents[key]?.fileName && "ready")}
+                className={classNames("doc-tile", documentPack[key]?.fileName && "ready")}
                 key={key}
               >
                 <FileText size={20} />
                 <div>
-                  <strong>{documentLabels[key]}</strong>
-                  <span>{form.documents[key]?.fileName ?? "Missing"}</span>
+                  <strong>{documentLabel(key)}</strong>
+                  <span>{documentPack[key]?.fileName ?? t("missingFile")}</span>
                 </div>
-                <label className="mini-upload" title={`Attach ${documentLabels[key]}`}>
+                <label className="mini-upload" title={`${t("docs")}: ${documentLabel(key)}`}>
                   <input
                     accept="application/pdf,image/*"
+                    disabled={!documentOrder}
                     onChange={(event) => attachDocument(key, event)}
                     type="file"
                   />
                   <Upload size={15} />
                 </label>
-                {form.documents[key]?.fileName ? (
-                  <IconButton onClick={() => removeDocument(key)} title="Remove file">
+                {documentPack[key]?.fileName ? (
+                  <IconButton onClick={() => removeDocument(key)} title={t("removeFile")}>
                     <XIcon />
                   </IconButton>
                 ) : null}
@@ -2149,28 +2321,28 @@ export default function ProductionPilot() {
         <div className="metric-grid three">
           <article className="metric-card accent-green">
             <Package size={22} />
-            <span>Inventory value</span>
+            <span>{t("inventoryValue")}</span>
             <strong>{currency.format(stockValue)}</strong>
-            <small>{stock.length} tracked groups</small>
+            <small>{stock.length} {t("trackedGroups")}</small>
           </article>
           <article className="metric-card accent-red">
             <AlertTriangle size={22} />
-            <span>Reorder alerts</span>
+            <span>{t("reorderAlerts")}</span>
             <strong>{stock.filter((item) => item.onHand <= item.reorderPoint).length}</strong>
-            <small>Below reorder point</small>
+            <small>{t("belowReorderPoint")}</small>
           </article>
           <article className="metric-card accent-blue">
             <Boxes size={22} />
-            <span>Reserved</span>
+            <span>{t("reservedMaterials")}</span>
             <strong>{stock.reduce((sum, item) => sum + item.reserved, 0)}</strong>
-            <small>Units committed to orders</small>
+            <small>{t("unitsCommitted")}</small>
           </article>
         </div>
         <div className="panel">
           <div className="panel-heading">
             <div>
-              <p>Magacin</p>
-              <h3>Material availability</h3>
+              <p>{t("stock")}</p>
+              <h3>{t("materialAvailability")}</h3>
             </div>
             <Database size={20} />
           </div>
@@ -2182,23 +2354,52 @@ export default function ProductionPilot() {
                   className={classNames("inventory-row", item.onHand <= item.reorderPoint && "low")}
                   key={item.id}
                 >
-                  <div>
+                  <div className="inventory-info">
                     <strong>{item.name}</strong>
                     <span>{item.code} - {item.supplier}</span>
                   </div>
+                  <div className={classNames("stock-texture-card", item.textureImage && "ready")}>
+                    <div
+                      className={classNames("stock-texture-preview", !item.textureImage && "empty")}
+                      style={
+                        item.textureImage
+                          ? { backgroundImage: `url(${item.textureImage})` }
+                          : undefined
+                      }
+                    >
+                      {!item.textureImage ? <Upload size={16} /> : null}
+                    </div>
+                    <div>
+                      <strong>{t("materialTexture")}</strong>
+                      <span>{item.textureName ?? t("noTexture")}</span>
+                    </div>
+                    <label className="mini-upload" title={t("uploadTexture")}>
+                      <input
+                        accept="image/*"
+                        onChange={(event) => attachStockTexture(item.id, event)}
+                        type="file"
+                      />
+                      <Upload size={15} />
+                    </label>
+                    {item.textureImage ? (
+                      <IconButton onClick={() => removeStockTexture(item.id)} title={t("removeTexture")}>
+                        <XIcon />
+                      </IconButton>
+                    ) : null}
+                  </div>
                   <div className="stock-numbers">
-                    <span>On hand <strong>{item.onHand}</strong></span>
-                    <span>Reserved <strong>{item.reserved}</strong></span>
-                    <span>Available <strong>{available}</strong></span>
+                    <span>{t("onHand")} <strong>{item.onHand}</strong></span>
+                    <span>{t("reservedMaterials")} <strong>{item.reserved}</strong></span>
+                    <span>{t("available")} <strong>{available}</strong></span>
                   </div>
                   <div className="row-actions">
                     <button className="soft-action" onClick={() => moveStock(item.id, "receive")} type="button">
                       <Plus size={16} />
-                      Receive
+                      {t("receive")}
                     </button>
                     <button className="soft-action" onClick={() => moveStock(item.id, "issue")} type="button">
                       <Truck size={16} />
-                      Issue
+                      {t("issue")}
                     </button>
                   </div>
                 </article>
@@ -2216,28 +2417,28 @@ export default function ProductionPilot() {
         <div className="metric-grid three">
           <article className="metric-card accent-blue">
             <Wallet size={22} />
-            <span>Receivable</span>
+            <span>{t("receivable")}</span>
             <strong>{currency.format(financeSummary.receivable)}</strong>
-            <small>Open client balance</small>
+            <small>{t("openClientBalance")}</small>
           </article>
           <article className="metric-card accent-amber">
             <Wallet size={22} />
-            <span>Payable</span>
+            <span>{t("payable")}</span>
             <strong>{currency.format(financeSummary.payable)}</strong>
-            <small>Open supplier balance</small>
+            <small>{t("openSupplierBalance")}</small>
           </article>
           <article className="metric-card accent-red">
             <AlertTriangle size={22} />
-            <span>Overdue</span>
+            <span>{t("overdue")}</span>
             <strong>{currency.format(financeSummary.overdue)}</strong>
-            <small>Needs attention</small>
+            <small>{t("needsAttention")}</small>
           </article>
         </div>
         <div className="panel">
           <div className="panel-heading">
             <div>
-              <p>Ulaz / Izlaz</p>
-              <h3>Supplier and client ledger</h3>
+              <p>{t("cashFlow")}</p>
+              <h3>{t("supplierClientLedger")}</h3>
             </div>
             <BarChart3 size={20} />
           </div>
@@ -2245,14 +2446,14 @@ export default function ProductionPilot() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Type</th>
-                  <th>Name</th>
-                  <th>Invoice</th>
-                  <th>Due</th>
-                  <th>Amount</th>
-                  <th>Paid</th>
-                  <th>Open</th>
-                  <th aria-label="Actions" />
+                  <th>{t("type")}</th>
+                  <th>{t("name")}</th>
+                  <th>{t("invoice")}</th>
+                  <th>{t("due")}</th>
+                  <th>{t("amount")}</th>
+                  <th>{t("paid")}</th>
+                  <th>{t("openBalance")}</th>
+                  <th aria-label={t("actions")} />
                 </tr>
               </thead>
               <tbody>
@@ -2260,7 +2461,7 @@ export default function ProductionPilot() {
                   const open = item.amount - item.paid;
                   return (
                     <tr key={item.id}>
-                      <td>{item.kind}</td>
+                      <td>{ledgerKindLabel(item.kind)}</td>
                       <td>{item.name}</td>
                       <td>{item.invoice}</td>
                       <td className={classNames(daysUntil(item.dueDate) < 0 && open > 0 && "hot-date")}>
@@ -2277,7 +2478,7 @@ export default function ProductionPilot() {
                           type="button"
                         >
                           <Check size={16} />
-                          Pay
+                          {t("pay")}
                         </button>
                       </td>
                     </tr>
@@ -2297,8 +2498,8 @@ export default function ProductionPilot() {
         <div className="panel">
           <div className="panel-heading">
             <div>
-              <p>Worker times</p>
-              <h3>Stations and active orders</h3>
+              <p>{t("workerTimes")}</p>
+              <h3>{t("stationsActiveOrders")}</h3>
             </div>
             <Timer size={20} />
           </div>
@@ -2308,17 +2509,17 @@ export default function ProductionPilot() {
                 <div className="worker-card-head">
                   <div>
                     <strong>{worker.name}</strong>
-                    <span>{worker.station}</span>
+                    <span>{workerStationLabel(worker.station)}</span>
                   </div>
                   <button className="soft-action compact-action" onClick={() => rotateWorkerStatus(worker.id)} type="button">
                     <RefreshCw size={15} />
-                    {worker.status}
+                    {workerStatusLabel(worker.status)}
                   </button>
                 </div>
                 <div className="worker-metrics">
-                  <span>Order <strong>{worker.activeOrderId}</strong></span>
-                  <span>Shift <strong>{worker.shiftHours.toFixed(2)}h</strong></span>
-                  <span>Efficiency <strong>{worker.efficiency}%</strong></span>
+                  <span>{t("order")} <strong>{worker.activeOrderId}</strong></span>
+                  <span>{t("shift")} <strong>{worker.shiftHours.toFixed(2)}h</strong></span>
+                  <span>{t("efficiency")} <strong>{worker.efficiency}%</strong></span>
                 </div>
               </article>
             ))}
@@ -2327,8 +2528,8 @@ export default function ProductionPilot() {
         <div className="panel">
           <div className="panel-heading">
             <div>
-              <p>Quality handoff</p>
-              <h3>Station queue</h3>
+              <p>{t("qualityHandoff")}</p>
+              <h3>{t("stationQueue")}</h3>
             </div>
             <Eye size={20} />
           </div>
@@ -2349,87 +2550,4 @@ export default function ProductionPilot() {
     );
   }
 
-  function renderSettings() {
-    return (
-      <section className="settings-layout">
-        <div className="panel">
-          <div className="panel-heading">
-            <div>
-              <p>Deployment</p>
-              <h3>StackBlitz - GitHub - Vercel ready</h3>
-            </div>
-            <ShieldCheck size={20} />
-          </div>
-          <div className="readiness-list">
-            {[
-              "Next.js App Router project at repository root",
-              "Vercel config and production build script",
-              "Browser-safe data model with import and export",
-              "Legacy SQL credentials removed from deployable code",
-              "Responsive cockpit UI for desktop and tablet use",
-              "Migration map for future database and auth integration"
-            ].map((item) => (
-              <div className="ready-row" key={item}>
-                <Check size={17} />
-                <span>{item}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="panel">
-          <div className="panel-heading">
-            <div>
-              <p>Data</p>
-              <h3>Workspace controls</h3>
-            </div>
-            <Database size={20} />
-          </div>
-          <div className="settings-actions">
-            <button className="primary-action" onClick={exportData} type="button">
-              <Download size={17} />
-              Export JSON
-            </button>
-            <label className="soft-action file-action">
-              <Upload size={17} />
-              Import JSON
-              <input accept="application/json" onChange={importData} type="file" />
-            </label>
-            <button className="danger-action" onClick={resetDemoData} type="button">
-              <RefreshCw size={17} />
-              Restore demo data
-            </button>
-          </div>
-        </div>
-
-        <div className="panel wide-panel">
-          <div className="panel-heading">
-            <div>
-              <p>Migration map</p>
-              <h3>What changed from the legacy app</h3>
-            </div>
-            <ChevronRight size={20} />
-          </div>
-          <div className="migration-grid">
-            <article>
-              <strong>OrderSpecsDB</strong>
-              <span>Mapped into typed order records with status priority, documents, driver fields, and production-hour accrual.</span>
-            </article>
-            <article>
-              <strong>MonitorView</strong>
-              <span>Converted into a live browser monitor that refreshes immediately from the shared order state.</span>
-            </article>
-            <article>
-              <strong>Placeholder modules</strong>
-              <span>Inventory, finance, workers, print, and docs are now usable modules instead of disabled buttons.</span>
-            </article>
-            <article>
-              <strong>Deployment model</strong>
-              <span>Runs on Vercel without Windows Forms, SQL client assemblies, WebForms, or desktop-only PDF controls.</span>
-            </article>
-          </div>
-        </div>
-      </section>
-    );
-  }
 }

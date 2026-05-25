@@ -12,7 +12,9 @@ import {
   RotateCw,
   Ruler,
   Save,
-  SlidersHorizontal
+  SlidersHorizontal,
+  ZoomIn,
+  ZoomOut
 } from "lucide-react";
 import * as THREE from "three";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -20,7 +22,8 @@ import type {
   CSSProperties,
   ChangeEvent,
   KeyboardEvent,
-  PointerEvent as ReactPointerEvent
+  PointerEvent as ReactPointerEvent,
+  WheelEvent
 } from "react";
 import { legacyCatalog } from "../app/_domain/legacyCatalog";
 import type { Language } from "../app/_domain/i18n";
@@ -43,6 +46,9 @@ type RenderConfig = {
   panelStatus: string;
   insideColor: string;
   outsideColor: string;
+  insideTextureId: string;
+  outsideTextureId: string;
+  panelTextureId: string;
   stockProfileLength: number;
   stockGlassWidth: number;
   stockGlassHeight: number;
@@ -65,12 +71,31 @@ type NumericConfigKey =
   | "stockPanelHeight";
 
 type StockLike = {
+  id?: string;
+  code?: string;
   name: string;
   category: string;
+  supplier?: string;
   onHand: number;
   reserved: number;
   unit: string;
   value: number;
+  textureImage?: string;
+  textureName?: string;
+};
+
+type StockTexture = {
+  id: string;
+  name: string;
+  category: string;
+  image: string;
+  supplier?: string;
+};
+
+type SceneMaterialTextures = {
+  outside?: string;
+  inside?: string;
+  panel?: string;
 };
 
 type RenderCalculations = {
@@ -90,6 +115,7 @@ type RenderCalculations = {
 };
 
 type SavedRenderElement = {
+  id: string;
   image: string;
   label: string;
   family: RenderFamily;
@@ -98,6 +124,7 @@ type SavedRenderElement = {
   depth: number;
   outsideColor: string;
   insideColor: string;
+  placement: PlacementState;
 };
 
 type PlacementState = {
@@ -105,7 +132,11 @@ type PlacementState = {
   y: number;
   scale: number;
   rotation: number;
+  rotateX: number;
+  rotateY: number;
 };
+
+type PlacementMode = "move" | "rotate";
 
 type ProductionRendererProps = {
   language: Language;
@@ -189,11 +220,26 @@ const copy = {
     placementStudio: "Studio za prostor",
     uploadSpacePhoto: "Uslikaj / ucitaj prostor",
     manualPlacement: "Rucno pozicioniranje",
+    moveMode: "Pomjeranje",
+    rotateMode: "Rotacija",
     xPosition: "Lijevo / desno",
     yPosition: "Gore / dole",
     scale: "Velicina",
     rotation: "Rotacija",
+    yaw: "Okret lijevo / desno",
+    pitch: "Nagib gore / dole",
+    roll: "Okretanje",
     resetPlacement: "Resetuj poziciju",
+    zoom: "Zoom",
+    zoomIn: "Priblizi render",
+    zoomOut: "Udalji render",
+    resetZoom: "Resetuj zoom",
+    stockTextures: "Teksture iz magacina",
+    noStockTextures: "U magacinu jos nema ucitane teksture.",
+    useBaseColor: "Samo boja",
+    outsideTexture: "Vanjska tekstura",
+    insideTexture: "Unutrasnja tekstura",
+    panelTexture: "Panel / namjestaj tekstura",
     saveFirst: "Prvo spremi renderovani element, zatim dodaj fotografiju prostora.",
     roomPhotoHint: "Dodaj fotografiju prostorije i pomjeraj element direktno po slici.",
     impossibleFrame: "Profil je predebeo za zadatu sirinu/visinu ili broj podjela.",
@@ -265,11 +311,26 @@ const copy = {
     placementStudio: "Raumstudio",
     uploadSpacePhoto: "Raumfoto aufnehmen/laden",
     manualPlacement: "Manuelle Platzierung",
+    moveMode: "Verschieben",
+    rotateMode: "Drehen",
     xPosition: "Links / rechts",
     yPosition: "Oben / unten",
     scale: "Groesse",
     rotation: "Rotation",
+    yaw: "Drehung links / rechts",
+    pitch: "Neigung oben / unten",
+    roll: "Rollen",
     resetPlacement: "Position resetten",
+    zoom: "Zoom",
+    zoomIn: "Render vergroessern",
+    zoomOut: "Render verkleinern",
+    resetZoom: "Zoom resetten",
+    stockTextures: "Texturen aus dem Lager",
+    noStockTextures: "Im Lager ist noch keine Textur geladen.",
+    useBaseColor: "Nur Farbe",
+    outsideTexture: "Aussentextur",
+    insideTexture: "Innentextur",
+    panelTexture: "Paneel/Moebel-Textur",
     saveFirst: "Render-Element speichern, dann Raumfoto hinzufuegen.",
     roomPhotoHint: "Raumfoto laden und Element direkt im Bild bewegen.",
     impossibleFrame: "Profil ist fuer Breite/Hoehe oder Teilungen zu stark.",
@@ -341,11 +402,26 @@ const copy = {
     placementStudio: "Studio ambiente",
     uploadSpacePhoto: "Scatta/carica ambiente",
     manualPlacement: "Posizionamento manuale",
+    moveMode: "Sposta",
+    rotateMode: "Ruota",
     xPosition: "Sinistra / destra",
     yPosition: "Su / giu",
     scale: "Dimensione",
     rotation: "Rotazione",
+    yaw: "Rotazione sinistra / destra",
+    pitch: "Inclinazione su / giu",
+    roll: "Rollio",
     resetPlacement: "Reset posizione",
+    zoom: "Zoom",
+    zoomIn: "Avvicina render",
+    zoomOut: "Allontana render",
+    resetZoom: "Reset zoom",
+    stockTextures: "Texture dal magazzino",
+    noStockTextures: "Nessuna texture caricata in magazzino.",
+    useBaseColor: "Solo colore",
+    outsideTexture: "Texture esterna",
+    insideTexture: "Texture interna",
+    panelTexture: "Texture pannello/mobile",
     saveFirst: "Salva prima l'elemento renderizzato, poi aggiungi la foto ambiente.",
     roomPhotoHint: "Carica una foto ambiente e sposta l'elemento direttamente sull'immagine.",
     impossibleFrame: "Profilo troppo spesso per dimensioni o divisioni.",
@@ -417,11 +493,26 @@ const copy = {
     placementStudio: "Estudio de espacio",
     uploadSpacePhoto: "Tomar/cargar espacio",
     manualPlacement: "Colocacion manual",
+    moveMode: "Mover",
+    rotateMode: "Rotar",
     xPosition: "Izquierda / derecha",
     yPosition: "Arriba / abajo",
     scale: "Tamano",
     rotation: "Rotacion",
+    yaw: "Giro izquierda / derecha",
+    pitch: "Inclinacion arriba / abajo",
+    roll: "Rotacion libre",
     resetPlacement: "Restablecer posicion",
+    zoom: "Zoom",
+    zoomIn: "Acercar render",
+    zoomOut: "Alejar render",
+    resetZoom: "Restablecer zoom",
+    stockTextures: "Texturas del almacen",
+    noStockTextures: "Aun no hay textura cargada en almacen.",
+    useBaseColor: "Solo color",
+    outsideTexture: "Textura exterior",
+    insideTexture: "Textura interior",
+    panelTexture: "Textura panel/mueble",
     saveFirst: "Guarda primero el elemento renderizado y luego agrega la foto del espacio.",
     roomPhotoHint: "Carga una foto del espacio y mueve el elemento directamente sobre la imagen.",
     impossibleFrame: "Perfil demasiado grueso para dimensiones o divisiones.",
@@ -493,11 +584,26 @@ const copy = {
     placementStudio: "Room placement studio",
     uploadSpacePhoto: "Capture/upload room",
     manualPlacement: "Manual placement",
+    moveMode: "Move",
+    rotateMode: "Rotate",
     xPosition: "Left / right",
     yPosition: "Up / down",
     scale: "Size",
     rotation: "Rotation",
+    yaw: "Yaw left / right",
+    pitch: "Pitch up / down",
+    roll: "Roll",
     resetPlacement: "Reset placement",
+    zoom: "Zoom",
+    zoomIn: "Zoom in",
+    zoomOut: "Zoom out",
+    resetZoom: "Reset zoom",
+    stockTextures: "Warehouse textures",
+    noStockTextures: "No texture has been uploaded in stock yet.",
+    useBaseColor: "Base color",
+    outsideTexture: "Outside texture",
+    insideTexture: "Inside texture",
+    panelTexture: "Panel / furniture texture",
     saveFirst: "Save the rendered element first, then add a room photo.",
     roomPhotoHint: "Add a room photo and move the element directly on the image.",
     impossibleFrame: "Profile is too thick for the dimensions or divisions.",
@@ -611,6 +717,22 @@ function createBoardTexture(hexColor: string) {
   return texture;
 }
 
+function createUploadedTexture(source: string | undefined, repeatX = 1.9, repeatY = 1.15) {
+  if (!source) {
+    return undefined;
+  }
+
+  const texture = new THREE.TextureLoader().load(source, (loadedTexture) => {
+    loadedTexture.needsUpdate = true;
+  });
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(repeatX, repeatY);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+  return texture;
+}
+
 function disposeMaterial(material: THREE.Material | THREE.Material[]) {
   const materials = Array.isArray(material) ? material : [material];
   materials.forEach((item) => {
@@ -623,14 +745,169 @@ function disposeMaterial(material: THREE.Material | THREE.Material[]) {
   });
 }
 
+function drawRoundedRect(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number
+) {
+  const nextRadius = Math.min(radius, width / 2, height / 2);
+  context.beginPath();
+  context.moveTo(x + nextRadius, y);
+  context.lineTo(x + width - nextRadius, y);
+  context.quadraticCurveTo(x + width, y, x + width, y + nextRadius);
+  context.lineTo(x + width, y + height - nextRadius);
+  context.quadraticCurveTo(x + width, y + height, x + width - nextRadius, y + height);
+  context.lineTo(x + nextRadius, y + height);
+  context.quadraticCurveTo(x, y + height, x, y + height - nextRadius);
+  context.lineTo(x, y + nextRadius);
+  context.quadraticCurveTo(x, y, x + nextRadius, y);
+  context.closePath();
+}
+
+function createFrontFacingElementImage(config: RenderConfig) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 980;
+  canvas.height = 980;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return "";
+  }
+
+  const outside = productColor(config.outsideColor);
+  const inside = productColor(config.insideColor, outside);
+  const ratio = clampNumber(config.width / Math.max(1, config.height), 0.22, 4.5);
+  const maxWidth = 820;
+  const maxHeight = 820;
+  const modelWidth = ratio >= 1 ? maxWidth : maxHeight * ratio;
+  const modelHeight = ratio >= 1 ? maxWidth / ratio : maxHeight;
+  const x = (canvas.width - modelWidth) / 2;
+  const y = (canvas.height - modelHeight) / 2;
+  const minSide = Math.min(modelWidth, modelHeight);
+  const frame = clampNumber(
+    (config.frameWidth / Math.max(1, Math.min(config.width, config.height))) *
+      minSide,
+    10,
+    Math.max(18, minSide * 0.24)
+  );
+
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.shadowColor = "rgba(16, 24, 32, 0.24)";
+  context.shadowBlur = 26;
+  context.shadowOffsetY = 22;
+
+  if (config.family === "furniture") {
+    drawRoundedRect(context, x, y, modelWidth, modelHeight, 10);
+    context.fillStyle = outside;
+    context.fill();
+    context.shadowColor = "transparent";
+
+    const board = clampNumber(frame * 0.82, 12, 70);
+    context.fillStyle = inside;
+    context.fillRect(x + board, y + board, modelWidth - board * 2, modelHeight - board * 2);
+    context.fillStyle = outside;
+    for (let row = 1; row < config.horizontalDivisions; row += 1) {
+      const lineY = y + (modelHeight / config.horizontalDivisions) * row - board * 0.32;
+      context.fillRect(x + board, lineY, modelWidth - board * 2, board * 0.64);
+    }
+    for (let column = 1; column < config.verticalDivisions; column += 1) {
+      const lineX = x + (modelWidth / config.verticalDivisions) * column - board * 0.32;
+      context.fillRect(lineX, y + board, board * 0.64, modelHeight - board * 2);
+    }
+  } else if (config.family === "universal") {
+    context.fillStyle = outside;
+    context.fillRect(x, y, modelWidth, frame);
+    context.fillRect(x, y + modelHeight - frame, modelWidth, frame);
+    context.fillRect(x, y, frame, modelHeight);
+    context.fillRect(x + modelWidth - frame, y, frame, modelHeight);
+    context.shadowColor = "transparent";
+  } else {
+    drawRoundedRect(context, x, y, modelWidth, modelHeight, 8);
+    context.fillStyle = outside;
+    context.fill();
+    context.shadowColor = "transparent";
+
+    const glassX = x + frame;
+    const glassY = y + frame;
+    const glassWidth = modelWidth - frame * 2;
+    const glassHeight = modelHeight - frame * 2;
+
+    const glassGradient = context.createLinearGradient(glassX, glassY, glassX + glassWidth, glassY + glassHeight);
+    glassGradient.addColorStop(0, "rgba(223, 250, 255, 0.9)");
+    glassGradient.addColorStop(0.48, "rgba(145, 193, 205, 0.78)");
+    glassGradient.addColorStop(1, "rgba(226, 250, 255, 0.86)");
+    context.fillStyle = glassGradient;
+    context.fillRect(glassX, glassY, glassWidth, glassHeight);
+
+    context.strokeStyle = "rgba(255, 255, 255, 0.58)";
+    context.lineWidth = Math.max(2, frame * 0.08);
+    context.strokeRect(glassX + 3, glassY + 3, glassWidth - 6, glassHeight - 6);
+
+    context.fillStyle = inside;
+    const mullion = clampNumber(frame * 0.46, 6, 34);
+    for (let column = 1; column < config.verticalDivisions; column += 1) {
+      const lineX = glassX + (glassWidth / config.verticalDivisions) * column - mullion / 2;
+      context.fillRect(lineX, glassY, mullion, glassHeight);
+    }
+    for (let row = 1; row < config.horizontalDivisions; row += 1) {
+      const lineY = glassY + (glassHeight / config.horizontalDivisions) * row - mullion / 2;
+      context.fillRect(glassX, lineY, glassWidth, mullion);
+    }
+
+    if (config.openingMode !== "fixed") {
+      context.fillStyle = "rgba(17, 24, 32, 0.72)";
+      const handleWidth = clampNumber(frame * 0.16, 4, 12);
+      const handleHeight = clampNumber(modelHeight * 0.16, 44, 120);
+      drawRoundedRect(
+        context,
+        x + modelWidth - frame * 0.62,
+        y + modelHeight * 0.5 - handleHeight / 2,
+        handleWidth,
+        handleHeight,
+        handleWidth / 2
+      );
+      context.fill();
+    }
+  }
+
+  context.shadowColor = "transparent";
+  context.strokeStyle = "rgba(255, 255, 255, 0.3)";
+  context.lineWidth = 2;
+  context.strokeRect(x + 1, y + 1, modelWidth - 2, modelHeight - 2);
+
+  return canvas.toDataURL("image/png");
+}
+
+function createDefaultPlacement(offset = 0): PlacementState {
+  return {
+    x: clampNumber(50 + offset * 4, 18, 82),
+    y: clampNumber(58 + offset * 3, 18, 82),
+    scale: 52,
+    rotation: 0,
+    rotateX: 0,
+    rotateY: 0
+  };
+}
+
 function ProductionThreeScene({
   config,
-  calculations
+  calculations,
+  materialTextures,
+  zoom
 }: {
   config: RenderConfig;
   calculations: RenderCalculations;
+  materialTextures: SceneMaterialTextures;
+  zoom: number;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const zoomRef = useRef(zoom);
+
+  useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -657,20 +934,26 @@ function ProductionThreeScene({
     container.appendChild(renderer.domElement);
 
     const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 100);
+    camera.zoom = zoomRef.current / 100;
     const model = new THREE.Group();
     scene.add(model);
 
     const outside = productColor(config.outsideColor);
     const inside = productColor(config.insideColor, outside);
-    const boardTexture = createBoardTexture(outside);
+    const outsideTexture = createUploadedTexture(materialTextures.outside, 2.2, 1.18);
+    const insideTexture = createUploadedTexture(materialTextures.inside, 2.2, 1.18);
+    const boardTexture =
+      createUploadedTexture(materialTextures.panel, 2.8, 1.55) ?? createBoardTexture(outside);
 
     const profileMaterial = new THREE.MeshStandardMaterial({
-      color: outside,
+      color: outsideTexture ? 0xffffff : outside,
+      map: outsideTexture,
       metalness: 0.18,
       roughness: 0.34
     });
     const innerMaterial = new THREE.MeshStandardMaterial({
-      color: inside,
+      color: insideTexture ? 0xffffff : inside,
+      map: insideTexture,
       metalness: 0.12,
       roughness: 0.42
     });
@@ -699,7 +982,7 @@ function ProductionThreeScene({
       roughness: 0.22
     });
     const boardMaterial = new THREE.MeshStandardMaterial({
-      color: outside,
+      color: materialTextures.panel ? 0xffffff : outside,
       map: boardTexture,
       metalness: 0.02,
       roughness: 0.48
@@ -978,6 +1261,8 @@ function ProductionThreeScene({
     function animate() {
       const elapsed = clock.getElapsedTime();
       const drift = dragging ? 0 : Math.sin(elapsed * 0.42) * 0.055;
+      camera.zoom += (zoomRef.current / 100 - camera.zoom) * 0.16;
+      camera.updateProjectionMatrix();
       model.rotation.x += (targetRotationX - model.rotation.x) * 0.08;
       model.rotation.y += (targetRotationY + drift - model.rotation.y) * 0.08;
       model.position.y = Math.sin(elapsed * 0.78) * 0.035;
@@ -1015,7 +1300,13 @@ function ProductionThreeScene({
         }
       });
     };
-  }, [calculations.panes, config]);
+  }, [
+    calculations.panes,
+    config,
+    materialTextures.inside,
+    materialTextures.outside,
+    materialTextures.panel
+  ]);
 
   return <div className="render-canvas-host" ref={hostRef} />;
 }
@@ -1042,25 +1333,79 @@ export function ProductionRenderer({
     panelStatus: "GLATKI - DOSTUPNO",
     insideColor: "BIANCO",
     outsideColor: "ANTRAZIT",
+    insideTextureId: "",
+    outsideTextureId: "",
+    panelTextureId: "",
     stockProfileLength: 6500,
     stockGlassWidth: 3210,
     stockGlassHeight: 2250,
     stockPanelWidth: 2800,
     stockPanelHeight: 2070
   });
-  const [savedElement, setSavedElement] = useState<SavedRenderElement | null>(null);
+  const [savedElements, setSavedElements] = useState<SavedRenderElement[]>([]);
+  const [selectedElementId, setSelectedElementId] = useState("");
   const [roomPhoto, setRoomPhoto] = useState("");
-  const [placement, setPlacement] = useState<PlacementState>({
-    x: 50,
-    y: 58,
-    scale: 52,
-    rotation: 0
-  });
+  const [placementMode, setPlacementMode] = useState<PlacementMode>("move");
+  const [renderZoom, setRenderZoom] = useState(100);
   const [draftNumbers, setDraftNumbers] = useState<
     Partial<Record<NumericConfigKey, string>>
   >({});
   const [isDraggingPlacement, setIsDraggingPlacement] = useState(false);
   const placementRef = useRef<HTMLDivElement | null>(null);
+
+  const selectedElement =
+    savedElements.find((element) => element.id === selectedElementId) ??
+    savedElements[0] ??
+    null;
+  const placement = selectedElement?.placement ?? createDefaultPlacement();
+
+  const stockTextures = useMemo<StockTexture[]>(
+    () =>
+      stock
+        .filter((item) => item.textureImage)
+        .map((item) => ({
+          id: item.id ?? item.name,
+          name: item.textureName ? `${item.name} - ${item.textureName}` : item.name,
+          category: item.category,
+          image: item.textureImage ?? "",
+          supplier: item.supplier
+        })),
+    [stock]
+  );
+
+  const findStockTexture = (id: string) =>
+    stockTextures.find((texture) => texture.id === id);
+
+  const firstStockTexture = (...terms: string[]) =>
+    stockTextures.find((texture) => {
+      const category = texture.category.toLowerCase();
+      const name = texture.name.toLowerCase();
+      return terms.some((term) => category.includes(term) || name.includes(term));
+    });
+
+  const selectedOutsideTexture =
+    config.outsideTextureId === "__base__"
+      ? undefined
+      : findStockTexture(config.outsideTextureId) ?? firstStockTexture("profil", "profile");
+  const selectedInsideTexture =
+    config.insideTextureId === "__base__"
+      ? undefined
+      : findStockTexture(config.insideTextureId) ?? selectedOutsideTexture;
+  const selectedPanelTexture =
+    config.panelTextureId === "__base__"
+      ? undefined
+      : findStockTexture(config.panelTextureId) ??
+        firstStockTexture("panel", "ploca", "ploce", "furniture") ??
+        selectedOutsideTexture;
+
+  const sceneMaterialTextures = useMemo(
+    () => ({
+      outside: selectedOutsideTexture?.image,
+      inside: selectedInsideTexture?.image,
+      panel: selectedPanelTexture?.image
+    }),
+    [selectedInsideTexture?.image, selectedOutsideTexture?.image, selectedPanelTexture?.image]
+  );
 
   const calculations = useMemo(() => {
     const panes = Math.max(1, config.verticalDivisions * config.horizontalDivisions);
@@ -1293,35 +1638,52 @@ export function ProductionRenderer({
   }
 
   function updatePlacement<K extends keyof PlacementState>(key: K, value: PlacementState[K]) {
-    setPlacement((previous) => ({ ...previous, [key]: value }));
+    const activeId = selectedElement?.id;
+    if (!activeId) {
+      return;
+    }
+    setSavedElements((previous) =>
+      previous.map((element) =>
+        element.id === activeId
+          ? {
+              ...element,
+              placement: { ...element.placement, [key]: value }
+            }
+          : element
+      )
+    );
+  }
+
+  function updateRenderZoom(delta: number) {
+    setRenderZoom((previous) => Math.round(clampNumber(previous + delta, 55, 180)));
+  }
+
+  function handleRenderWheel(event: WheelEvent<HTMLDivElement>) {
+    event.preventDefault();
+    updateRenderZoom(event.deltaY > 0 ? -7 : 7);
   }
 
   function saveRenderedElement() {
-    const canvas = document.querySelector<HTMLCanvasElement>("canvas[data-render-canvas]");
-    if (!canvas || !isGeometryValid) {
+    if (!isGeometryValid) {
       return;
     }
 
-    const cropCanvas = document.createElement("canvas");
-    const cropWidth = Math.round(canvas.width * 0.72);
-    const cropHeight = Math.round(canvas.height * 0.74);
-    const cropX = Math.round((canvas.width - cropWidth) / 2);
-    const cropY = Math.round(canvas.height * 0.09);
-    cropCanvas.width = cropWidth;
-    cropCanvas.height = cropHeight;
-    const context = cropCanvas.getContext("2d");
-    context?.drawImage(canvas, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
-
-    setSavedElement({
-      image: cropCanvas.toDataURL("image/png"),
+    const id = `element-${Date.now()}`;
+    const nextElement: SavedRenderElement = {
+      id,
+      image: createFrontFacingElementImage(config),
       label: `${config.width} x ${config.height} x ${config.depth} mm`,
       family: config.family,
       width: config.width,
       height: config.height,
       depth: config.depth,
       outsideColor: config.outsideColor,
-      insideColor: config.insideColor
-    });
+      insideColor: config.insideColor,
+      placement: createDefaultPlacement(savedElements.length)
+    };
+
+    setSavedElements((previous) => [nextElement, ...previous].slice(0, 12));
+    setSelectedElementId(id);
   }
 
   function handleRoomPhoto(event: ChangeEvent<HTMLInputElement>) {
@@ -1342,12 +1704,21 @@ export function ProductionRenderer({
 
   function setPlacementFromPointer(event: ReactPointerEvent<HTMLDivElement>) {
     const bounds = placementRef.current?.getBoundingClientRect();
-    if (!bounds || !savedElement || !roomPhoto) {
+    if (!bounds || !selectedElement || !roomPhoto) {
       return;
     }
 
-    updatePlacement("x", clampNumber(((event.clientX - bounds.left) / bounds.width) * 100, 0, 100));
-    updatePlacement("y", clampNumber(((event.clientY - bounds.top) / bounds.height) * 100, 0, 100));
+    const xPercent = ((event.clientX - bounds.left) / bounds.width) * 100;
+    const yPercent = ((event.clientY - bounds.top) / bounds.height) * 100;
+
+    if (placementMode === "rotate") {
+      updatePlacement("rotateY", Math.round(clampNumber((xPercent - 50) * 1.35, -68, 68)));
+      updatePlacement("rotateX", Math.round(clampNumber((50 - yPercent) * 0.9, -48, 48)));
+      return;
+    }
+
+    updatePlacement("x", clampNumber(xPercent, 0, 100));
+    updatePlacement("y", clampNumber(yPercent, 0, 100));
   }
 
   function handlePlacementPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
@@ -1370,12 +1741,17 @@ export function ProductionRenderer({
   }
 
   function resetPlacement() {
-    setPlacement({
-      x: 50,
-      y: 58,
-      scale: 52,
-      rotation: 0
-    });
+    const activeId = selectedElement?.id;
+    if (!activeId) {
+      return;
+    }
+    setSavedElements((previous) =>
+      previous.map((element) =>
+        element.id === activeId
+          ? { ...element, placement: createDefaultPlacement() }
+          : element
+      )
+    );
   }
 
   function renderColorSwatches(key: "insideColor" | "outsideColor", label: string) {
@@ -1393,6 +1769,51 @@ export function ProductionRenderer({
               title={color}
               type="button"
             />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  function renderTexturePicker(
+    key: "insideTextureId" | "outsideTextureId" | "panelTextureId",
+    label: string,
+    selectedTexture: StockTexture | undefined,
+    preferredTerms: string[]
+  ) {
+    const preferred = stockTextures.filter((texture) => {
+      const category = texture.category.toLowerCase();
+      const name = texture.name.toLowerCase();
+      return preferredTerms.some((term) => category.includes(term) || name.includes(term));
+    });
+    const options = preferred.length ? preferred : stockTextures;
+
+    return (
+      <div className="stock-texture-picker">
+        <span>{label}</span>
+        <div className="stock-texture-grid">
+          <button
+            className={classNames((config[key] === "__base__" || !selectedTexture) && "active")}
+            onClick={() => update(key, "__base__")}
+            type="button"
+          >
+            <span className="stock-texture-thumb empty" />
+            <small>{t.useBaseColor}</small>
+          </button>
+          {options.map((texture) => (
+            <button
+              className={classNames(selectedTexture?.id === texture.id && "active")}
+              key={`${key}-${texture.id}`}
+              onClick={() => update(key, texture.id)}
+              title={texture.name}
+              type="button"
+            >
+              <span
+                className="stock-texture-thumb"
+                style={{ backgroundImage: `url(${texture.image})` }}
+              />
+              <small>{texture.name}</small>
+            </button>
           ))}
         </div>
       </div>
@@ -1428,8 +1849,13 @@ export function ProductionRenderer({
       </div>
 
       <div className="render-workbench">
-        <div className="render-stage" aria-label="3D production render">
-          <ProductionThreeScene config={config} calculations={calculations} />
+        <div className="render-stage" aria-label="3D production render" onWheel={handleRenderWheel}>
+          <ProductionThreeScene
+            calculations={calculations}
+            config={config}
+            materialTextures={sceneMaterialTextures}
+            zoom={renderZoom}
+          />
           <div className="render-stage-glow" />
           <div className="render-hud render-hud-main">
             <span>{t.liveEngine}</span>
@@ -1454,8 +1880,22 @@ export function ProductionRenderer({
             </span>
           </div>
           <div className="render-material-strip">
-            <span style={{ backgroundColor: productColor(config.outsideColor) }} />
-            <span style={{ backgroundColor: productColor(config.insideColor, productColor(config.outsideColor)) }} />
+            <span
+              className={classNames(selectedOutsideTexture && "has-texture")}
+              style={
+                selectedOutsideTexture
+                  ? { backgroundImage: `url(${selectedOutsideTexture.image})` }
+                  : { backgroundColor: productColor(config.outsideColor) }
+              }
+            />
+            <span
+              className={classNames(selectedInsideTexture && "has-texture")}
+              style={
+                selectedInsideTexture
+                  ? { backgroundImage: `url(${selectedInsideTexture.image})` }
+                  : { backgroundColor: productColor(config.insideColor, productColor(config.outsideColor)) }
+              }
+            />
             <span className={calculations.glassFits ? "ok" : "risk"} />
             <strong>{t.materialStack}</strong>
           </div>
@@ -1468,6 +1908,17 @@ export function ProductionRenderer({
           <div className="render-ready-chip">
             <Factory size={15} />
             <span>{t.readyPieces}: {readyPieces}/{config.quantity}</span>
+          </div>
+          <div className="render-zoom-controls" aria-label={t.zoom}>
+            <button onClick={() => updateRenderZoom(-10)} title={t.zoomOut} type="button">
+              <ZoomOut size={16} />
+            </button>
+            <button className="render-zoom-value" onClick={() => setRenderZoom(100)} title={t.resetZoom} type="button">
+              {renderZoom}%
+            </button>
+            <button onClick={() => updateRenderZoom(10)} title={t.zoomIn} type="button">
+              <ZoomIn size={16} />
+            </button>
           </div>
         </div>
 
@@ -1610,6 +2061,34 @@ export function ProductionRenderer({
               </label>
               {renderColorSwatches("outsideColor", t.outsidePalette)}
               {renderColorSwatches("insideColor", t.insidePalette)}
+              <div className="stock-texture-section">
+                <div className="stock-texture-heading">
+                  <strong>{t.stockTextures}</strong>
+                  <span>{stockTextures.length ? `${stockTextures.length}` : t.noStockTextures}</span>
+                </div>
+                {stockTextures.length ? (
+                  <>
+                    {renderTexturePicker(
+                      "outsideTextureId",
+                      t.outsideTexture,
+                      selectedOutsideTexture,
+                      ["profil", "profile"]
+                    )}
+                    {renderTexturePicker(
+                      "insideTextureId",
+                      t.insideTexture,
+                      selectedInsideTexture,
+                      ["profil", "profile"]
+                    )}
+                    {renderTexturePicker(
+                      "panelTextureId",
+                      t.panelTexture,
+                      selectedPanelTexture,
+                      ["panel", "ploca", "ploce", "furniture"]
+                    )}
+                  </>
+                ) : null}
+              </div>
             </div>
           </div>
 
@@ -1658,13 +2137,25 @@ export function ProductionRenderer({
                 <input accept="image/*" capture="environment" onChange={handleRoomPhoto} type="file" />
               </label>
             </div>
-            {savedElement ? (
-              <div className="saved-element-chip">
-                <img alt={savedElement.label} src={savedElement.image} />
-                <div>
-                  <strong>{t.elementSaved}</strong>
-                  <span>{savedElement.label}</span>
-                </div>
+            {savedElements.length ? (
+              <div className="saved-elements-list">
+                {savedElements.map((element) => (
+                  <button
+                    className={classNames(
+                      "saved-element-chip",
+                      selectedElement?.id === element.id && "active"
+                    )}
+                    key={element.id}
+                    onClick={() => setSelectedElementId(element.id)}
+                    type="button"
+                  >
+                    <img alt={element.label} src={element.image} />
+                    <div>
+                      <strong>{t.elementSaved}</strong>
+                      <span>{element.label}</span>
+                    </div>
+                  </button>
+                ))}
               </div>
             ) : (
               <p className="control-hint">{t.saveFirst}</p>
@@ -1686,7 +2177,11 @@ export function ProductionRenderer({
         </div>
         <div className="placement-workspace">
           <div
-            className={classNames("room-placement-canvas", isDraggingPlacement && "dragging")}
+            className={classNames(
+              "room-placement-canvas",
+              isDraggingPlacement && "dragging",
+              placementMode === "rotate" && "rotating"
+            )}
             onPointerCancel={handlePlacementPointerUp}
             onPointerDown={handlePlacementPointerDown}
             onPointerMove={handlePlacementPointerMove}
@@ -1702,21 +2197,43 @@ export function ProductionRenderer({
                 <span>{t.roomPhotoHint}</span>
               </div>
             )}
-            {savedElement ? (
+            {savedElements.map((element) => (
               <img
-                alt={savedElement.label}
-                className="placed-render-element"
-                src={savedElement.image}
+                alt={element.label}
+                className={classNames(
+                  "placed-render-element",
+                  selectedElement?.id === element.id && "active"
+                )}
+                key={element.id}
+                src={element.image}
                 style={{
-                  left: `${placement.x}%`,
-                  top: `${placement.y}%`,
-                  transform: `translate(-50%, -50%) rotate(${placement.rotation}deg)`,
-                  width: `${placement.scale}%`
+                  left: `${element.placement.x}%`,
+                  top: `${element.placement.y}%`,
+                  transform: `translate(-50%, -50%) perspective(900px) rotateX(${element.placement.rotateX}deg) rotateY(${element.placement.rotateY}deg) rotateZ(${element.placement.rotation}deg)`,
+                  width: `${element.placement.scale}%`
                 }}
               />
-            ) : null}
+            ))}
           </div>
           <div className="placement-sliders">
+            <div className="placement-mode-toggle">
+              <button
+                className={placementMode === "move" ? "active" : ""}
+                onClick={() => setPlacementMode("move")}
+                type="button"
+              >
+                <Move size={14} />
+                {t.moveMode}
+              </button>
+              <button
+                className={placementMode === "rotate" ? "active" : ""}
+                onClick={() => setPlacementMode("rotate")}
+                type="button"
+              >
+                <RotateCw size={14} />
+                {t.rotateMode}
+              </button>
+            </div>
             <label>
               <span><Move size={14} /> {t.xPosition}</span>
               <input max="100" min="0" onChange={(event) => updatePlacement("x", Number(event.target.value))} type="range" value={placement.x} />
@@ -1727,11 +2244,19 @@ export function ProductionRenderer({
             </label>
             <label>
               <span><Ruler size={14} /> {t.scale}</span>
-              <input max="120" min="12" onChange={(event) => updatePlacement("scale", Number(event.target.value))} type="range" value={placement.scale} />
+              <input max="180" min="12" onChange={(event) => updatePlacement("scale", Number(event.target.value))} type="range" value={placement.scale} />
             </label>
             <label>
-              <span><RotateCw size={14} /> {t.rotation}</span>
-              <input max="45" min="-45" onChange={(event) => updatePlacement("rotation", Number(event.target.value))} type="range" value={placement.rotation} />
+              <span><RotateCw size={14} /> {t.yaw}</span>
+              <input max="68" min="-68" onChange={(event) => updatePlacement("rotateY", Number(event.target.value))} type="range" value={placement.rotateY} />
+            </label>
+            <label>
+              <span><RotateCw size={14} /> {t.pitch}</span>
+              <input max="48" min="-48" onChange={(event) => updatePlacement("rotateX", Number(event.target.value))} type="range" value={placement.rotateX} />
+            </label>
+            <label>
+              <span><RotateCw size={14} /> {t.roll}</span>
+              <input max="180" min="-180" onChange={(event) => updatePlacement("rotation", Number(event.target.value))} type="range" value={placement.rotation} />
             </label>
           </div>
         </div>

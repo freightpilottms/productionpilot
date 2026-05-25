@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Nova narudzba">
+  <defs>
+    <linearGradient id="skin" x1="31" x2="58" y1="34" y2="74" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f5c08b"/>
+      <stop offset="1" stop-color="#d58b4b"/>
+    </linearGradient>
+  </defs>
+  <path d="M10 74c15-9 25-18 31-31l10 8C42 66 32 77 18 89z" fill="#111827"/>
+  <path d="M36 39c3-7 9-7 12-2l8 14c3 6 1 13-5 16l-7 4c-6 3-13 1-16-5l-3-6c-3-6 0-13 6-16z" fill="url(#skin)"/>
+  <path d="M24 18h55" stroke="#d7dde2" stroke-width="5" stroke-linecap="round"/>
+  <path d="M31 25h41" stroke="#b8c0c8" stroke-width="3" stroke-linecap="round"/>
+  <path d="M31 19c2 13 10 21 22 25" fill="none" stroke="#d08a48" stroke-width="5" stroke-linecap="round"/>
+  <path d="M47 39 35 49" stroke="#a96333" stroke-width="4" stroke-linecap="round"/>
+</svg>

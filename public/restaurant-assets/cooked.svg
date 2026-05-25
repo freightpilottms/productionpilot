@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Kuhano">
+  <path d="M17 46c5-16 57-16 62 0l-8 29c-5 11-43 11-48 0z" fill="#f5f0e8" stroke="#6d6a64" stroke-width="4"/>
+  <path d="M23 45c10-12 41-14 51-1-11 10-39 12-51 1z" fill="#d5b56b" stroke="#98824e" stroke-width="3"/>
+  <path d="M25 76h48" stroke="#6d6a64" stroke-width="4" stroke-linecap="round"/>
+  <path d="M30 57c9 8 20 9 34 0" stroke="#8c6b35" stroke-width="4" stroke-linecap="round"/>
+  <path d="M69 48 88 32" stroke="#6d6a64" stroke-width="4" stroke-linecap="round"/>
+  <path d="M75 74 91 83" stroke="#6d6a64" stroke-width="4" stroke-linecap="round"/>
+</svg>

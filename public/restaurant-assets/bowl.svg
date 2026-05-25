@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 96" role="img" aria-label="Zdijela">
+  <path d="M20 39c10-20 78-20 88 0v5c0 23-20 39-44 39S20 67 20 44z" fill="#69708f" stroke="#3f455f" stroke-width="4"/>
+  <ellipse cx="64" cy="39" rx="44" ry="20" fill="#9aa0b9" stroke="#3f455f" stroke-width="4"/>
+  <path d="M30 38c6-8 16-10 26-5 8-9 20-10 31-2 7-1 11 1 15 7-11 13-61 14-72 0z" fill="#e8dcc5"/>
+  <path d="M35 58c-10 4-18 9-25 17 13 4 25 3 36-4" fill="#596457" stroke="#3a443b" stroke-width="3"/>
+  <path d="M52 60c-8 7-13 14-15 24 13 0 24-5 34-15" fill="#4f604f" stroke="#354035" stroke-width="3"/>
+  <path d="M43 30c-5 8-6 13-3 20M60 26c-1 10-3 15-8 21M75 26c2 9 0 16-5 21" stroke="#a55b32" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="90" cy="50" r="5" fill="#5fa862"/>
+</svg>

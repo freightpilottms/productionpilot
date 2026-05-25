@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Deserti">
+  <path d="M30 41c5-18 31-18 36 0l8 31c2 8-5 16-26 16S20 80 22 72z" fill="#ead6a8" stroke="#5a321e" stroke-width="4"/>
+  <path d="M27 44c9-10 35-11 43 0-9 9-34 10-43 0z" fill="#fff5d7" stroke="#5a321e" stroke-width="3"/>
+  <path d="M34 55c5 4 10 4 15 0s10-4 15 0" fill="none" stroke="#8dd1e5" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="49" cy="30" r="8" fill="#c92632"/>
+  <path d="M51 22c5-6 10-4 13 2" stroke="#6ca24d" stroke-width="4" stroke-linecap="round"/>
+</svg>

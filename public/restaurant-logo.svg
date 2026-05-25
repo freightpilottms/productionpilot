@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 300" role="img" aria-labelledby="title desc">
+  <title id="title">BeCleven Restaurant</title>
+  <desc id="desc">Privremeni BeCleven restaurant logo sa chef kapom, priborom i poklopcem za serviranje.</desc>
+  <defs>
+    <linearGradient id="plate" x1="90" y1="220" x2="330" y2="220" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#dce6ea"/>
+      <stop offset=".52" stop-color="#f7fbfd"/>
+      <stop offset="1" stop-color="#b8c7cc"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="80" y1="120" x2="350" y2="220" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fbd34c"/>
+      <stop offset=".55" stop-color="#f5a623"/>
+      <stop offset="1" stop-color="#de6f20"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="7" flood-color="#2a1710" flood-opacity=".24"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#shadow)">
+    <path d="M101 130c-14 38-7 75 20 100l-21 13c-28-32-34-73-17-116z" fill="#f0b331"/>
+    <path d="M76 123c42 11 73 33 92 68" fill="none" stroke="#52301f" stroke-width="10" stroke-linecap="round"/>
+    <path d="M319 130c14 38 7 75-20 100l21 13c28-32 34-73 17-116z" fill="#f3c23d"/>
+    <path d="M344 123c-42 11-73 33-92 68" fill="none" stroke="#52301f" stroke-width="10" stroke-linecap="round"/>
+
+    <path d="M190 92c-7-21 11-43 36-37 9-20 42-21 54-2 24-6 45 12 43 34 18 3 31 16 31 33 0 19-17 34-38 34H157c-24 0-43-15-43-35 0-17 14-31 34-34 7-23 36-34 58-18-6 6-11 14-16 25z" fill="#fff"/>
+    <path d="M190 92c-7-21 11-43 36-37 9-20 42-21 54-2 24-6 45 12 43 34 18 3 31 16 31 33 0 19-17 34-38 34H157c-24 0-43-15-43-35 0-17 14-31 34-34 7-23 36-34 58-18-6 6-11 14-16 25z" fill="none" stroke="#5a321e" stroke-width="8" stroke-linejoin="round"/>
+
+    <path d="M113 222c10-58 52-96 98-96s88 38 98 96z" fill="url(#plate)" stroke="#5a321e" stroke-width="8"/>
+    <path d="M92 225h236c9 0 16 7 16 16v2H76v-2c0-9 7-16 16-16z" fill="#d5e0e4" stroke="#5a321e" stroke-width="8"/>
+    <path d="M141 234h139" stroke="#fff" stroke-width="7" stroke-linecap="round" opacity=".8"/>
+
+    <path d="M173 108c12 9 25 13 39 13 15 0 30-5 45-14" fill="none" stroke="#cbd5d8" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="211" cy="128" r="11" fill="#5a321e"/>
+  </g>
+
+  <text x="208" y="74" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="58" font-weight="900" fill="#5a321e" transform="rotate(-10 208 74)">BeCleven</text>
+  <text x="210" y="270" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="900" letter-spacing="5" fill="#5a321e">RESTAURANT</text>
+</svg>

@@ -1,9 +1,22 @@
 "use client";
 
-import { Box, Check, Factory, Layers, Ruler, Save, SlidersHorizontal } from "lucide-react";
+import {
+  Box,
+  Camera,
+  Check,
+  Factory,
+  ImagePlus,
+  Layers,
+  Move,
+  RefreshCw,
+  RotateCw,
+  Ruler,
+  Save,
+  SlidersHorizontal
+} from "lucide-react";
 import * as THREE from "three";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ChangeEvent, PointerEvent as ReactPointerEvent } from "react";
 import { legacyCatalog } from "../app/_domain/legacyCatalog";
 import type { Language } from "../app/_domain/i18n";
 
@@ -69,6 +82,24 @@ type RenderCalculations = {
   screws: number;
   hinges: number;
   boardArea: number;
+};
+
+type SavedRenderElement = {
+  image: string;
+  label: string;
+  family: RenderFamily;
+  width: number;
+  height: number;
+  depth: number;
+  outsideColor: string;
+  insideColor: string;
+};
+
+type PlacementState = {
+  x: number;
+  y: number;
+  scale: number;
+  rotation: number;
 };
 
 type ProductionRendererProps = {
@@ -141,7 +172,28 @@ const copy = {
     profileDepth: "Dubina profila",
     clearOpening: "Svijetli otvor",
     materialStack: "Slojevi materijala",
-    readyPieces: "Spremni komadi"
+    readyPieces: "Spremni komadi",
+    profileColors: "Boje profila",
+    outsidePalette: "Vanjska paleta",
+    insidePalette: "Unutrasnja paleta",
+    physicalCheck: "Fizicka provjera",
+    validGeometry: "Geometrija je izvodljiva",
+    physicalIssue: "Fizicki problem",
+    saveElement: "Spremi element",
+    elementSaved: "Element spremljen",
+    placementStudio: "Studio za prostor",
+    uploadSpacePhoto: "Uslikaj / ucitaj prostor",
+    manualPlacement: "Rucno pozicioniranje",
+    xPosition: "Lijevo / desno",
+    yPosition: "Gore / dole",
+    scale: "Velicina",
+    rotation: "Rotacija",
+    resetPlacement: "Resetuj poziciju",
+    saveFirst: "Prvo spremi renderovani element, zatim dodaj fotografiju prostora.",
+    roomPhotoHint: "Dodaj fotografiju prostorije i pomjeraj element direktno po slici.",
+    impossibleFrame: "Profil je predebeo za zadatu sirinu/visinu ili broj podjela.",
+    impossibleDepth: "Dubina nije logicna u odnosu na sirinu/visinu elementa.",
+    impossibleStock: "Skladisni format mora biti pozitivan."
   },
   de: {
     family: "Produkttyp",
@@ -196,7 +248,28 @@ const copy = {
     profileDepth: "Profiltiefe",
     clearOpening: "Lichte Oeffnung",
     materialStack: "Materialschichten",
-    readyPieces: "Fertige Teile"
+    readyPieces: "Fertige Teile",
+    profileColors: "Profilfarben",
+    outsidePalette: "Aussenpalette",
+    insidePalette: "Innenpalette",
+    physicalCheck: "Physische Pruefung",
+    validGeometry: "Geometrie ist machbar",
+    physicalIssue: "Physisches Problem",
+    saveElement: "Element speichern",
+    elementSaved: "Element gespeichert",
+    placementStudio: "Raumstudio",
+    uploadSpacePhoto: "Raumfoto aufnehmen/laden",
+    manualPlacement: "Manuelle Platzierung",
+    xPosition: "Links / rechts",
+    yPosition: "Oben / unten",
+    scale: "Groesse",
+    rotation: "Rotation",
+    resetPlacement: "Position resetten",
+    saveFirst: "Render-Element speichern, dann Raumfoto hinzufuegen.",
+    roomPhotoHint: "Raumfoto laden und Element direkt im Bild bewegen.",
+    impossibleFrame: "Profil ist fuer Breite/Hoehe oder Teilungen zu stark.",
+    impossibleDepth: "Tiefe ist im Verhaeltnis zu Breite/Hoehe nicht plausibel.",
+    impossibleStock: "Lagerformat muss positiv sein."
   },
   it: {
     family: "Tipo prodotto",
@@ -251,7 +324,28 @@ const copy = {
     profileDepth: "Profondita profilo",
     clearOpening: "Luce netta",
     materialStack: "Strati materiale",
-    readyPieces: "Pezzi pronti"
+    readyPieces: "Pezzi pronti",
+    profileColors: "Colori profilo",
+    outsidePalette: "Palette esterna",
+    insidePalette: "Palette interna",
+    physicalCheck: "Controllo fisico",
+    validGeometry: "Geometria realizzabile",
+    physicalIssue: "Problema fisico",
+    saveElement: "Salva elemento",
+    elementSaved: "Elemento salvato",
+    placementStudio: "Studio ambiente",
+    uploadSpacePhoto: "Scatta/carica ambiente",
+    manualPlacement: "Posizionamento manuale",
+    xPosition: "Sinistra / destra",
+    yPosition: "Su / giu",
+    scale: "Dimensione",
+    rotation: "Rotazione",
+    resetPlacement: "Reset posizione",
+    saveFirst: "Salva prima l'elemento renderizzato, poi aggiungi la foto ambiente.",
+    roomPhotoHint: "Carica una foto ambiente e sposta l'elemento direttamente sull'immagine.",
+    impossibleFrame: "Profilo troppo spesso per dimensioni o divisioni.",
+    impossibleDepth: "Profondita non plausibile rispetto a larghezza/altezza.",
+    impossibleStock: "Il formato magazzino deve essere positivo."
   },
   es: {
     family: "Tipo de producto",
@@ -306,7 +400,28 @@ const copy = {
     profileDepth: "Profundidad perfil",
     clearOpening: "Apertura libre",
     materialStack: "Capas material",
-    readyPieces: "Piezas listas"
+    readyPieces: "Piezas listas",
+    profileColors: "Colores perfil",
+    outsidePalette: "Paleta exterior",
+    insidePalette: "Paleta interior",
+    physicalCheck: "Control fisico",
+    validGeometry: "Geometria viable",
+    physicalIssue: "Problema fisico",
+    saveElement: "Guardar elemento",
+    elementSaved: "Elemento guardado",
+    placementStudio: "Estudio de espacio",
+    uploadSpacePhoto: "Tomar/cargar espacio",
+    manualPlacement: "Colocacion manual",
+    xPosition: "Izquierda / derecha",
+    yPosition: "Arriba / abajo",
+    scale: "Tamano",
+    rotation: "Rotacion",
+    resetPlacement: "Restablecer posicion",
+    saveFirst: "Guarda primero el elemento renderizado y luego agrega la foto del espacio.",
+    roomPhotoHint: "Carga una foto del espacio y mueve el elemento directamente sobre la imagen.",
+    impossibleFrame: "Perfil demasiado grueso para dimensiones o divisiones.",
+    impossibleDepth: "Profundidad no plausible frente a ancho/alto.",
+    impossibleStock: "El formato de almacen debe ser positivo."
   },
   en: {
     family: "Product type",
@@ -361,7 +476,28 @@ const copy = {
     profileDepth: "Profile depth",
     clearOpening: "Clear opening",
     materialStack: "Material stack",
-    readyPieces: "Ready pieces"
+    readyPieces: "Ready pieces",
+    profileColors: "Profile colors",
+    outsidePalette: "Outside palette",
+    insidePalette: "Inside palette",
+    physicalCheck: "Physical check",
+    validGeometry: "Geometry is buildable",
+    physicalIssue: "Physical issue",
+    saveElement: "Save element",
+    elementSaved: "Element saved",
+    placementStudio: "Room placement studio",
+    uploadSpacePhoto: "Capture/upload room",
+    manualPlacement: "Manual placement",
+    xPosition: "Left / right",
+    yPosition: "Up / down",
+    scale: "Size",
+    rotation: "Rotation",
+    resetPlacement: "Reset placement",
+    saveFirst: "Save the rendered element first, then add a room photo.",
+    roomPhotoHint: "Add a room photo and move the element directly on the image.",
+    impossibleFrame: "Profile is too thick for the dimensions or divisions.",
+    impossibleDepth: "Depth is not plausible against width/height.",
+    impossibleStock: "Warehouse format must be positive."
   }
 } as const;
 
@@ -385,12 +521,47 @@ const colorHex: Record<string, string> = {
   "IC O50 ICONA SALE": "#ddd7c7"
 };
 
+const dimensionBounds: Record<NumericConfigKey, { min: number; max: number }> = {
+  width: { min: 80, max: 20000 },
+  height: { min: 80, max: 16000 },
+  depth: { min: 1, max: 8000 },
+  frameWidth: { min: 3, max: 2500 },
+  quantity: { min: 1, max: 999 },
+  verticalDivisions: { min: 1, max: 12 },
+  horizontalDivisions: { min: 1, max: 10 },
+  stockProfileLength: { min: 100, max: 30000 },
+  stockGlassWidth: { min: 80, max: 20000 },
+  stockGlassHeight: { min: 80, max: 16000 },
+  stockPanelWidth: { min: 80, max: 20000 },
+  stockPanelHeight: { min: 80, max: 16000 }
+};
+
 function clampNumber(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
+function classNames(...parts: Array<string | false | undefined>) {
+  return parts.filter(Boolean).join(" ");
+}
+
 function productColor(value: string, fallback = "#30343a") {
   return colorHex[value] ?? fallback;
+}
+
+function maxFrameWidth(config: Pick<RenderConfig, "width" | "height" | "verticalDivisions" | "horizontalDivisions">) {
+  const paneWidth = config.width / Math.max(1, config.verticalDivisions);
+  const paneHeight = config.height / Math.max(1, config.horizontalDivisions);
+  return Math.max(3, Math.floor(Math.min(paneWidth, paneHeight) * 0.42));
+}
+
+function normalizeConfig(config: RenderConfig) {
+  const next = { ...config };
+  (Object.keys(dimensionBounds) as NumericConfigKey[]).forEach((key) => {
+    const bounds = dimensionBounds[key];
+    next[key] = Math.round(clampNumber(next[key], bounds.min, bounds.max)) as never;
+  });
+  next.frameWidth = clampNumber(next.frameWidth, dimensionBounds.frameWidth.min, maxFrameWidth(next));
+  return next;
 }
 
 function createBoardTexture(hexColor: string) {
@@ -872,6 +1043,16 @@ export function ProductionRenderer({
     stockPanelWidth: 2800,
     stockPanelHeight: 2070
   });
+  const [savedElement, setSavedElement] = useState<SavedRenderElement | null>(null);
+  const [roomPhoto, setRoomPhoto] = useState("");
+  const [placement, setPlacement] = useState<PlacementState>({
+    x: 50,
+    y: 58,
+    scale: 52,
+    rotation: 0
+  });
+  const [isDraggingPlacement, setIsDraggingPlacement] = useState(false);
+  const placementRef = useRef<HTMLDivElement | null>(null);
 
   const calculations = useMemo(() => {
     const panes = Math.max(1, config.verticalDivisions * config.horizontalDivisions);
@@ -936,6 +1117,35 @@ export function ProductionRenderer({
       .reduce((sum, item) => sum + Math.max(0, item.onHand - item.reserved), 0);
     return { profiles, glass, panels };
   }, [stock]);
+
+  const physicalIssues = useMemo(() => {
+    const issues: string[] = [];
+    const paneWidth = config.width / Math.max(1, config.verticalDivisions);
+    const paneHeight = config.height / Math.max(1, config.horizontalDivisions);
+    const clearWidth = paneWidth - config.frameWidth * 2.2;
+    const clearHeight = paneHeight - config.frameWidth * 2.2;
+    const largestFace = Math.max(config.width, config.height);
+
+    if (clearWidth < 30 || clearHeight < 30 || config.frameWidth > maxFrameWidth(config)) {
+      issues.push(t.impossibleFrame);
+    }
+    if (config.depth > largestFace * 2.25) {
+      issues.push(t.impossibleDepth);
+    }
+    if (
+      config.stockProfileLength <= 0 ||
+      config.stockGlassWidth <= 0 ||
+      config.stockGlassHeight <= 0 ||
+      config.stockPanelWidth <= 0 ||
+      config.stockPanelHeight <= 0
+    ) {
+      issues.push(t.impossibleStock);
+    }
+
+    return issues;
+  }, [config, t]);
+
+  const isGeometryValid = physicalIssues.length === 0;
 
   const modelVars = {
     "--model-ratio": `${clampNumber(config.width / Math.max(1, config.height), 0.55, 1.85)}`,
@@ -1015,12 +1225,121 @@ export function ProductionRenderer({
   }
 
   function update<K extends keyof RenderConfig>(key: K, value: RenderConfig[K]) {
-    setConfig((previous) => ({ ...previous, [key]: value }));
+    setConfig((previous) => normalizeConfig({ ...previous, [key]: value }));
   }
 
-  function numberUpdate(key: NumericConfigKey, value: string, min: number, max: number) {
-    const next = clampNumber(Number(value) || 0, min, max);
-    setConfig((previous) => ({ ...previous, [key]: next }));
+  function numberUpdate(key: NumericConfigKey, value: string) {
+    const bounds = dimensionBounds[key];
+    const numericValue = Number(value);
+    const next = Number.isFinite(numericValue) ? clampNumber(numericValue, bounds.min, bounds.max) : bounds.min;
+    setConfig((previous) => normalizeConfig({ ...previous, [key]: next }));
+  }
+
+  function updatePlacement<K extends keyof PlacementState>(key: K, value: PlacementState[K]) {
+    setPlacement((previous) => ({ ...previous, [key]: value }));
+  }
+
+  function saveRenderedElement() {
+    const canvas = document.querySelector<HTMLCanvasElement>("canvas[data-render-canvas]");
+    if (!canvas || !isGeometryValid) {
+      return;
+    }
+
+    const cropCanvas = document.createElement("canvas");
+    const cropWidth = Math.round(canvas.width * 0.72);
+    const cropHeight = Math.round(canvas.height * 0.74);
+    const cropX = Math.round((canvas.width - cropWidth) / 2);
+    const cropY = Math.round(canvas.height * 0.09);
+    cropCanvas.width = cropWidth;
+    cropCanvas.height = cropHeight;
+    const context = cropCanvas.getContext("2d");
+    context?.drawImage(canvas, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+
+    setSavedElement({
+      image: cropCanvas.toDataURL("image/png"),
+      label: `${config.width} x ${config.height} x ${config.depth} mm`,
+      family: config.family,
+      width: config.width,
+      height: config.height,
+      depth: config.depth,
+      outsideColor: config.outsideColor,
+      insideColor: config.insideColor
+    });
+  }
+
+  function handleRoomPhoto(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setRoomPhoto(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+    event.target.value = "";
+  }
+
+  function setPlacementFromPointer(event: ReactPointerEvent<HTMLDivElement>) {
+    const bounds = placementRef.current?.getBoundingClientRect();
+    if (!bounds || !savedElement || !roomPhoto) {
+      return;
+    }
+
+    updatePlacement("x", clampNumber(((event.clientX - bounds.left) / bounds.width) * 100, 0, 100));
+    updatePlacement("y", clampNumber(((event.clientY - bounds.top) / bounds.height) * 100, 0, 100));
+  }
+
+  function handlePlacementPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    setIsDraggingPlacement(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setPlacementFromPointer(event);
+  }
+
+  function handlePlacementPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    if (isDraggingPlacement) {
+      setPlacementFromPointer(event);
+    }
+  }
+
+  function handlePlacementPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    setIsDraggingPlacement(false);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }
+
+  function resetPlacement() {
+    setPlacement({
+      x: 50,
+      y: 58,
+      scale: 52,
+      rotation: 0
+    });
+  }
+
+  function renderColorSwatches(key: "insideColor" | "outsideColor", label: string) {
+    return (
+      <div className="color-swatch-field">
+        <span>{label}</span>
+        <div className="color-swatch-grid">
+          {legacyCatalog.colors.map((color) => (
+            <button
+              aria-label={color}
+              className={classNames("color-swatch", config[key] === color && "active")}
+              key={`${key}-${color}`}
+              onClick={() => update(key, color)}
+              style={{ backgroundColor: productColor(color) }}
+              title={color}
+              type="button"
+            />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   const profileYield = Math.round(
@@ -1123,20 +1442,27 @@ export function ProductionRenderer({
             <div className="control-grid">
               <label>
                 <span>{t.width} mm</span>
-                <input min="300" max="4200" type="number" value={config.width} onChange={(event) => numberUpdate("width", event.target.value, 300, 4200)} />
+                <input min={dimensionBounds.width.min} max={dimensionBounds.width.max} type="number" value={config.width} onChange={(event) => numberUpdate("width", event.target.value)} />
               </label>
               <label>
                 <span>{t.height} mm</span>
-                <input min="300" max="3600" type="number" value={config.height} onChange={(event) => numberUpdate("height", event.target.value, 300, 3600)} />
+                <input min={dimensionBounds.height.min} max={dimensionBounds.height.max} type="number" value={config.height} onChange={(event) => numberUpdate("height", event.target.value)} />
               </label>
               <label>
                 <span>{t.depth} mm</span>
-                <input min="18" max="600" type="number" value={config.depth} onChange={(event) => numberUpdate("depth", event.target.value, 18, 600)} />
+                <input min={dimensionBounds.depth.min} max={dimensionBounds.depth.max} type="number" value={config.depth} onChange={(event) => numberUpdate("depth", event.target.value)} />
               </label>
               <label>
                 <span>{t.frame} mm</span>
-                <input min="18" max="180" type="number" value={config.frameWidth} onChange={(event) => numberUpdate("frameWidth", event.target.value, 18, 180)} />
+                <input min={dimensionBounds.frameWidth.min} max={maxFrameWidth(config)} type="number" value={config.frameWidth} onChange={(event) => numberUpdate("frameWidth", event.target.value)} />
               </label>
+            </div>
+            <div className={classNames("geometry-check", isGeometryValid ? "ok" : "risk")}>
+              <Check size={15} />
+              <div>
+                <strong>{isGeometryValid ? t.validGeometry : t.physicalIssue}</strong>
+                <span>{isGeometryValid ? t.physicalCheck : physicalIssues[0]}</span>
+              </div>
             </div>
           </div>
 
@@ -1148,11 +1474,11 @@ export function ProductionRenderer({
             <div className="control-grid">
               <label>
                 <span>{t.vDivisions}</span>
-                <input min="1" max="5" type="number" value={config.verticalDivisions} onChange={(event) => numberUpdate("verticalDivisions", event.target.value, 1, 5)} />
+                <input min={dimensionBounds.verticalDivisions.min} max={dimensionBounds.verticalDivisions.max} type="number" value={config.verticalDivisions} onChange={(event) => numberUpdate("verticalDivisions", event.target.value)} />
               </label>
               <label>
                 <span>{t.hDivisions}</span>
-                <input min="1" max="4" type="number" value={config.horizontalDivisions} onChange={(event) => numberUpdate("horizontalDivisions", event.target.value, 1, 4)} />
+                <input min={dimensionBounds.horizontalDivisions.min} max={dimensionBounds.horizontalDivisions.max} type="number" value={config.horizontalDivisions} onChange={(event) => numberUpdate("horizontalDivisions", event.target.value)} />
               </label>
               <label>
                 <span>{t.opening}</span>
@@ -1166,7 +1492,7 @@ export function ProductionRenderer({
               </label>
               <label>
                 <span>{t.qty}</span>
-                <input min="1" max="200" type="number" value={config.quantity} onChange={(event) => numberUpdate("quantity", event.target.value, 1, 200)} />
+                <input min={dimensionBounds.quantity.min} max={dimensionBounds.quantity.max} type="number" value={config.quantity} onChange={(event) => numberUpdate("quantity", event.target.value)} />
               </label>
             </div>
           </div>
@@ -1225,6 +1551,8 @@ export function ProductionRenderer({
                   ))}
                 </select>
               </label>
+              {renderColorSwatches("outsideColor", t.outsidePalette)}
+              {renderColorSwatches("insideColor", t.insidePalette)}
             </div>
           </div>
 
@@ -1236,25 +1564,118 @@ export function ProductionRenderer({
             <div className="control-grid">
               <label>
                 <span>{t.profile} mm</span>
-                <input min="1000" max="8000" type="number" value={config.stockProfileLength} onChange={(event) => numberUpdate("stockProfileLength", event.target.value, 1000, 8000)} />
+                <input min={dimensionBounds.stockProfileLength.min} max={dimensionBounds.stockProfileLength.max} type="number" value={config.stockProfileLength} onChange={(event) => numberUpdate("stockProfileLength", event.target.value)} />
               </label>
               <label>
                 <span>{t.glass} W</span>
-                <input min="300" max="6000" type="number" value={config.stockGlassWidth} onChange={(event) => numberUpdate("stockGlassWidth", event.target.value, 300, 6000)} />
+                <input min={dimensionBounds.stockGlassWidth.min} max={dimensionBounds.stockGlassWidth.max} type="number" value={config.stockGlassWidth} onChange={(event) => numberUpdate("stockGlassWidth", event.target.value)} />
               </label>
               <label>
                 <span>{t.glass} H</span>
-                <input min="300" max="4000" type="number" value={config.stockGlassHeight} onChange={(event) => numberUpdate("stockGlassHeight", event.target.value, 300, 4000)} />
+                <input min={dimensionBounds.stockGlassHeight.min} max={dimensionBounds.stockGlassHeight.max} type="number" value={config.stockGlassHeight} onChange={(event) => numberUpdate("stockGlassHeight", event.target.value)} />
               </label>
               <label>
                 <span>{t.panel} W</span>
-                <input min="300" max="6000" type="number" value={config.stockPanelWidth} onChange={(event) => numberUpdate("stockPanelWidth", event.target.value, 300, 6000)} />
+                <input min={dimensionBounds.stockPanelWidth.min} max={dimensionBounds.stockPanelWidth.max} type="number" value={config.stockPanelWidth} onChange={(event) => numberUpdate("stockPanelWidth", event.target.value)} />
               </label>
               <label>
                 <span>{t.panel} H</span>
-                <input min="300" max="4000" type="number" value={config.stockPanelHeight} onChange={(event) => numberUpdate("stockPanelHeight", event.target.value, 300, 4000)} />
+                <input min={dimensionBounds.stockPanelHeight.min} max={dimensionBounds.stockPanelHeight.max} type="number" value={config.stockPanelHeight} onChange={(event) => numberUpdate("stockPanelHeight", event.target.value)} />
               </label>
             </div>
+          </div>
+
+          <div className="control-section placement-controls">
+            <div className="control-title">
+              <Camera size={17} />
+              <strong>{t.placementStudio}</strong>
+            </div>
+            <div className="placement-actions">
+              <button className="soft-action" disabled={!isGeometryValid} onClick={saveRenderedElement} type="button">
+                <Save size={16} />
+                {t.saveElement}
+              </button>
+              <label className="soft-action file-action">
+                <ImagePlus size={16} />
+                {t.uploadSpacePhoto}
+                <input accept="image/*" capture="environment" onChange={handleRoomPhoto} type="file" />
+              </label>
+            </div>
+            {savedElement ? (
+              <div className="saved-element-chip">
+                <img alt={savedElement.label} src={savedElement.image} />
+                <div>
+                  <strong>{t.elementSaved}</strong>
+                  <span>{savedElement.label}</span>
+                </div>
+              </div>
+            ) : (
+              <p className="control-hint">{t.saveFirst}</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="placement-studio-panel">
+        <div className="panel-heading">
+          <div>
+            <p>{t.placementStudio}</p>
+            <h3>{t.manualPlacement}</h3>
+          </div>
+          <button className="soft-action compact-action" onClick={resetPlacement} type="button">
+            <RefreshCw size={15} />
+            {t.resetPlacement}
+          </button>
+        </div>
+        <div className="placement-workspace">
+          <div
+            className={classNames("room-placement-canvas", isDraggingPlacement && "dragging")}
+            onPointerCancel={handlePlacementPointerUp}
+            onPointerDown={handlePlacementPointerDown}
+            onPointerMove={handlePlacementPointerMove}
+            onPointerUp={handlePlacementPointerUp}
+            ref={placementRef}
+          >
+            {roomPhoto ? (
+              <img alt={t.placementStudio} className="room-photo" src={roomPhoto} />
+            ) : (
+              <div className="room-photo-empty">
+                <Camera size={28} />
+                <strong>{t.uploadSpacePhoto}</strong>
+                <span>{t.roomPhotoHint}</span>
+              </div>
+            )}
+            {savedElement ? (
+              <img
+                alt={savedElement.label}
+                className="placed-render-element"
+                src={savedElement.image}
+                style={{
+                  left: `${placement.x}%`,
+                  top: `${placement.y}%`,
+                  transform: `translate(-50%, -50%) rotate(${placement.rotation}deg)`,
+                  width: `${placement.scale}%`
+                }}
+              />
+            ) : null}
+          </div>
+          <div className="placement-sliders">
+            <label>
+              <span><Move size={14} /> {t.xPosition}</span>
+              <input max="100" min="0" onChange={(event) => updatePlacement("x", Number(event.target.value))} type="range" value={placement.x} />
+            </label>
+            <label>
+              <span><Move size={14} /> {t.yPosition}</span>
+              <input max="100" min="0" onChange={(event) => updatePlacement("y", Number(event.target.value))} type="range" value={placement.y} />
+            </label>
+            <label>
+              <span><Ruler size={14} /> {t.scale}</span>
+              <input max="120" min="12" onChange={(event) => updatePlacement("scale", Number(event.target.value))} type="range" value={placement.scale} />
+            </label>
+            <label>
+              <span><RotateCw size={14} /> {t.rotation}</span>
+              <input max="45" min="-45" onChange={(event) => updatePlacement("rotation", Number(event.target.value))} type="range" value={placement.rotation} />
+            </label>
           </div>
         </div>
       </div>
@@ -1290,6 +1711,7 @@ export function ProductionRenderer({
           <strong>{t.productionPush}</strong>
           <button
             className="primary-action"
+            disabled={!isGeometryValid}
             onClick={() =>
               onCreateOrder({
                 requester: `RENDER ${config.width}x${config.height}`,

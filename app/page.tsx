@@ -1790,57 +1790,267 @@ export default function ProductionPilot() {
   }
 
   function renderMonitor() {
+    const monitorLanes: Array<{
+      label: string;
+      subtitle: string;
+      states: ProductionState[];
+      icon: LucideIcon;
+      tone: "prep" | "build" | "pack" | "ship" | "done";
+    }> = [
+      {
+        label: "Priprema",
+        subtitle: "Nalozi spremni za start",
+        states: ["U PRIPREMI"],
+        icon: ClipboardList,
+        tone: "prep"
+      },
+      {
+        label: "Izrada",
+        subtitle: "Rezanje, obrada, varenje, okov",
+        states: ["U PROIZVODNJI", "SREZANO", "OBRADJENO", "ZAVARENO", "OKOVANO"],
+        icon: Factory,
+        tone: "build"
+      },
+      {
+        label: "Finalizacija",
+        subtitle: "Staklo, paneli i pakovanje",
+        states: ["POSTAKLANO", "SPAKOVANO"],
+        icon: Package,
+        tone: "pack"
+      },
+      {
+        label: "Logistika",
+        subtitle: "Utovar i isporuka",
+        states: ["POSLANO"],
+        icon: Truck,
+        tone: "ship"
+      },
+      {
+        label: "Zatvoreno",
+        subtitle: "Isporuceno i arhivirano",
+        states: ["ISPORUCENO"],
+        icon: ShieldCheck,
+        tone: "done"
+      }
+    ];
+    const activeUnits = Math.max(0, stats.totalQty - stats.groupQty.Done);
+    const activeWorkers = workers.filter((worker) => worker.status === "Active").length;
+    const averageEfficiency = workers.length
+      ? Math.round(
+          workers.reduce((sum, worker) => sum + worker.efficiency, 0) /
+            workers.length
+        )
+      : 0;
+    const bottleneck = Object.entries(stats.groupQty)
+      .filter(([group]) => group !== "Done")
+      .sort((a, b) => b[1] - a[1])[0];
+    const nextDeparture = orderedOrders.find((order) => order.state !== "ISPORUCENO");
+    const monitorTime = now.toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit"
+    });
+
     return (
       <section className="monitor-view">
-        <div className="monitor-header">
+        <div className="monitor-header monitor-hero">
           <div>
             <p>Production monitor</p>
-            <h3>Live factory board</h3>
+            <h3>Live factory command board</h3>
+            <span>
+              Real-time flow, operator load, delivery pressure and document readiness
+              for the whole shop floor.
+            </span>
           </div>
-          <strong>{now.toLocaleTimeString("en-GB")}</strong>
+          <div className="monitor-clock">
+            <Clock3 size={20} />
+            <strong>{monitorTime}</strong>
+            <span>{compactDate}</span>
+          </div>
         </div>
-        <div className="monitor-stats">
-          <span>U PRIPREMI: {stats.groupQty.Prep}</span>
-          <span>U IZRADI: {stats.groupQty.Build}</span>
-          <span>SPAKOVANO: {stats.groupQty.Pack}</span>
-          <span>POSLANO: {stats.groupQty.Ship}</span>
-          <span>ISPORUCENO: {stats.groupQty.Done}</span>
-          <span>UKUPNO: {stats.totalQty}</span>
+
+        <div className="monitor-board-grid">
+          <article className="monitor-kpi accent-green">
+            <Factory size={22} />
+            <span>Aktivno u toku</span>
+            <strong>{activeUnits}</strong>
+            <small>{orders.filter((order) => order.state !== "ISPORUCENO").length} otvorenih naloga</small>
+          </article>
+          <article className="monitor-kpi accent-amber">
+            <AlertTriangle size={22} />
+            <span>Delivery pressure</span>
+            <strong>{stats.dueSoon}</strong>
+            <small>{nextDeparture ? `${nextDeparture.id} za ${daysUntil(nextDeparture.deliveryDate)}d` : "Bez pritiska"}</small>
+          </article>
+          <article className="monitor-kpi accent-blue">
+            <FileText size={22} />
+            <span>Dokumentacija</span>
+            <strong>{stats.avgDocs}%</strong>
+            <small>Prosjecna spremnost paketa</small>
+          </article>
+          <article className="monitor-kpi accent-violet">
+            <HardHat size={22} />
+            <span>Shop floor</span>
+            <strong>{averageEfficiency}%</strong>
+            <small>{activeWorkers}/{workers.length} aktivnih radnika</small>
+          </article>
+          <article className="monitor-kpi accent-red">
+            <Timer size={22} />
+            <span>Bottleneck</span>
+            <strong>{bottleneck?.[1] ?? 0}</strong>
+            <small>{bottleneck?.[0] ?? "Clear"} komada u fokusu</small>
+          </article>
         </div>
-        <div className="monitor-table">
-          <table>
-            <thead>
-              <tr>
-                <th>NALOG</th>
-                <th>KLIJENT</th>
-                <th>NARUCILAC</th>
-                <th>SERIJA</th>
-                <th>PROFIL</th>
-                <th>STAKLO</th>
-                <th>KOLICINA</th>
-                <th>ISPORUKA</th>
-                <th>SATI</th>
-                <th>STANJE</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orderedOrders.map((order) => (
-                <tr className={`monitor-${stateMeta[order.state].tone}`} key={order.id}>
-                  <td>{order.id}</td>
-                  <td>{order.client}</td>
-                  <td>{order.requester}</td>
-                  <td>{order.series}</td>
-                  <td>{order.profile}</td>
-                  <td>{order.glass}</td>
-                  <td>{order.quantity}</td>
-                  <td>{order.deliveryDate}</td>
-                  <td>{order.productionHours.toFixed(1)}</td>
-                  <td>{order.state}</td>
+
+        <div className="monitor-lanes">
+          {monitorLanes.map((lane) => {
+            const Icon = lane.icon;
+            const laneOrders = orderedOrders.filter((order) =>
+              lane.states.includes(order.state)
+            );
+            const laneQty = laneOrders.reduce((sum, order) => sum + order.quantity, 0);
+            return (
+              <section className={classNames("monitor-lane", lane.tone)} key={lane.label}>
+                <div className="monitor-lane-head">
+                  <span>
+                    <Icon size={18} />
+                    {lane.label}
+                  </span>
+                  <strong>{laneQty}</strong>
+                </div>
+                <p>{lane.subtitle}</p>
+                <div className="monitor-lane-stack">
+                  {laneOrders.length ? (
+                    laneOrders.slice(0, 4).map((order) => {
+                      const progress = productionStatePriority[order.state] * 10;
+                      return (
+                        <button
+                          className="monitor-order-card"
+                          key={order.id}
+                          onClick={() => selectOrder(order)}
+                          type="button"
+                        >
+                          <span className="monitor-order-top">
+                            <strong>{order.id}</strong>
+                            <em>{daysUntil(order.deliveryDate)}d</em>
+                          </span>
+                          <span className="monitor-order-client">{order.client}</span>
+                          <span className="monitor-order-meta">
+                            <small>{order.quantity} kom</small>
+                            <small>{order.profile}</small>
+                            <small>{order.productionHours.toFixed(1)}h</small>
+                          </span>
+                          <span className="monitor-progress" aria-hidden="true">
+                            <span style={{ width: `${progress}%` }} />
+                          </span>
+                          <StatusPill language={language} state={order.state} />
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <span className="monitor-empty">Nema cekanja</span>
+                  )}
+                  {laneOrders.length > 4 ? (
+                    <button
+                      className="monitor-more"
+                      onClick={() => {
+                        setStateFilter(lane.states[0]);
+                        setActiveView("orders");
+                      }}
+                      type="button"
+                    >
+                      +{laneOrders.length - 4} jos u redu
+                    </button>
+                  ) : null}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+
+        <section className="monitor-radar">
+          <div className="monitor-section-head">
+            <div>
+              <p>Operator radar</p>
+              <h3>Stations, active orders and load</h3>
+            </div>
+            <Gauge size={20} />
+          </div>
+          <div className="monitor-worker-grid">
+            {workers.map((worker) => {
+              const workerOrder = orders.find(
+                (order) => order.id === worker.activeOrderId
+              );
+              return (
+                <button
+                  className={classNames(
+                    "monitor-worker-card",
+                    worker.status.toLowerCase()
+                  )}
+                  key={worker.id}
+                  onClick={() => {
+                    if (workerOrder) selectOrder(workerOrder);
+                  }}
+                  type="button"
+                >
+                  <span>
+                    <strong>{worker.name}</strong>
+                    <small>{worker.station}</small>
+                  </span>
+                  <em>{worker.status}</em>
+                  <div className="worker-load-bar" aria-hidden="true">
+                    <span style={{ width: `${worker.efficiency}%` }} />
+                  </div>
+                  <small>{worker.activeOrderId} - {worker.shiftHours.toFixed(1)}h - {worker.efficiency}%</small>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="monitor-table-card">
+          <div className="monitor-section-head">
+            <div>
+              <p>Order intelligence</p>
+              <h3>Detailed live queue</h3>
+            </div>
+            <BarChart3 size={20} />
+          </div>
+          <div className="monitor-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>NALOG</th>
+                  <th>KLIJENT</th>
+                  <th>NARUCILAC</th>
+                  <th>SERIJA</th>
+                  <th>PROFIL</th>
+                  <th>STAKLO</th>
+                  <th>KOLICINA</th>
+                  <th>ISPORUKA</th>
+                  <th>SATI</th>
+                  <th>STANJE</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {orderedOrders.map((order) => (
+                  <tr className={`monitor-${stateMeta[order.state].tone}`} key={order.id}>
+                    <td>{order.id}</td>
+                    <td>{order.client}</td>
+                    <td>{order.requester}</td>
+                    <td>{order.series}</td>
+                    <td>{order.profile}</td>
+                    <td>{order.glass}</td>
+                    <td>{order.quantity}</td>
+                    <td>{order.deliveryDate}</td>
+                    <td>{order.productionHours.toFixed(1)}</td>
+                    <td>{stateTranslations[language][order.state] ?? order.state}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </section>
     );
   }

@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Sos">
-  <path d="M16 46c10-12 54-12 64 0l-8 30c-4 10-44 10-48 0z" fill="#8b4b24" stroke="#5d2f19" stroke-width="4"/>
-  <path d="M25 44c10-11 36-12 48 0-8 10-39 11-48 0z" fill="#f6c142" stroke="#ce9022" stroke-width="3"/>
-  <path d="M32 38c5 6 10 6 15 0M49 39c5 6 10 6 15 0" stroke="#fff7d6" stroke-width="4" stroke-linecap="round"/>
-  <path d="M25 62c10 7 36 7 47 0" stroke="#f7db72" stroke-width="3" stroke-linecap="round"/>
-</svg>

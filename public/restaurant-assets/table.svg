@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Sto">
-  <ellipse cx="48" cy="35" rx="28" ry="13" fill="#b64f58" stroke="#81343b" stroke-width="4"/>
-  <path d="M32 45h32" stroke="#81343b" stroke-width="5" stroke-linecap="round"/>
-  <path d="M39 48 31 78M57 48l8 30" stroke="#9b6a52" stroke-width="5" stroke-linecap="round"/>
-  <path d="M25 56h46" stroke="#9b6a52" stroke-width="5" stroke-linecap="round"/>
-  <path d="M20 68c5-7 13-10 22-8M54 60c10-2 18 1 23 8" fill="none" stroke="#b64f58" stroke-width="4" stroke-linecap="round"/>
-</svg>

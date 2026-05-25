@@ -17,6 +17,9 @@ The new deployable project is a Next.js app at the repository root. The legacy f
 - Create, update, delete, search, and filter orders.
 - Role-aware admin delete behavior.
 - Production-hour accrual when orders move through tracked build states.
+- Multilingual interface shell for Bos/Hrv/Srb, German, Italian, Spanish, and English.
+- Render Production studio with Three.js 3D product generation from dimensions, series, colors, divisions, opening type, and warehouse formats.
+- Automatic bill of materials, profile bar count, glass/panel fit checks, waste estimate, screws, hinges, gasket, and order creation from a rendered configuration.
 - Live shop-floor monitor view.
 - Document readiness matrix for sketches, cutting lists, material specs, purchase orders, transport, export, proforma, and images.
 - Inventory module with receive/issue controls and reorder alerts.
@@ -51,3 +54,5 @@ The current build is browser-first and uses local demo data. For a live producti
 ## Migration Notes
 
 Legacy `OrderSpecsDB` fields were mapped into a typed order model with status, documents, driver details, materials, and production timing. Desktop-only controls such as WinForms grids, Adobe ActiveX PDF viewers, and RDP widgets were replaced with browser-safe modules.
+
+The legacy dropdowns from `SemBuilding/UpanelView.cs` are preserved as a production catalog in `app/_domain/legacyCatalog.ts`. Product series, material states, glass/panel availability, colors, hardware options, suppliers, warehouse categories, document buckets, clients, and workers now feed the browser UI instead of being hidden in Windows Forms controls.

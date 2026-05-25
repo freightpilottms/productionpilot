@@ -4,6 +4,7 @@ import {
   Box,
   Camera,
   Check,
+  DoorOpen,
   Factory,
   ImagePlus,
   Layers,
@@ -22,13 +23,14 @@ import type {
   CSSProperties,
   ChangeEvent,
   KeyboardEvent,
-  PointerEvent as ReactPointerEvent,
-  WheelEvent
+  PointerEvent as ReactPointerEvent
 } from "react";
 import { legacyCatalog } from "../app/_domain/legacyCatalog";
 import type { Language } from "../app/_domain/i18n";
 
-type RenderFamily = "joinery" | "furniture" | "universal";
+type RenderFamily = "joinery" | "furniture" | "universal" | "fence";
+type DoorSystem = "none" | "hinged" | "sliding";
+type HandleType = "bar" | "knob" | "edge" | "recessed" | "sliding-pull";
 
 type RenderConfig = {
   family: RenderFamily;
@@ -40,6 +42,10 @@ type RenderConfig = {
   verticalDivisions: number;
   horizontalDivisions: number;
   openingMode: "fixed" | "tilt" | "turn" | "tilt-turn" | "sliding";
+  doorSystem: DoorSystem;
+  doorWidth: number;
+  doorHeight: number;
+  handleType: HandleType;
   series: string;
   profileStatus: string;
   glassStatus: string;
@@ -64,6 +70,8 @@ type NumericConfigKey =
   | "quantity"
   | "verticalDivisions"
   | "horizontalDivisions"
+  | "doorWidth"
+  | "doorHeight"
   | "stockProfileLength"
   | "stockGlassWidth"
   | "stockGlassHeight"
@@ -158,18 +166,48 @@ const copy = {
   bhs: {
     family: "Tip proizvoda",
     joinery: "Stolarija",
-    furniture: "Namjestaj",
-    universal: "Univerzalni ram",
+    furniture: "Kuhinje",
+    universal: "Namještaj",
+    fence: "Ograde",
     dimensions: "Dimenzije",
-    width: "Sirina",
+    width: "Širina",
+    fenceLength: "Dužina",
     height: "Visina",
     depth: "Dubina",
     frame: "Profil / debljina",
     divisions: "Podjele",
+    modules: "Moduli",
+    fenceLayout: "Raspored ograde",
+    fenceSections: "Segmenti",
+    fenceRails: "Prečke",
+    verticalModules: "Vertikalni moduli",
+    shelfRows: "Police / redovi",
+    boardThickness: "Debljina ploče",
+    fenceProfile: "Profil stuba / prečke",
+    joineryMaterials: "Profili i ispuna",
+    kitchenMaterials: "Materijali kuhinje",
+    furnitureMaterials: "Materijali namještaja",
+    fenceMaterials: "Materijali ograde",
+    profileFormat: "Format profila",
+    glassFormat: "Format stakla",
+    boardFormat: "Format ploče",
     vDivisions: "Vertikalno",
     hDivisions: "Horizontalno",
     opening: "Otvaranje",
-    stock: "Skladisni format",
+    doorHardware: "Vrata i kvake",
+    doorSystem: "Sistem vrata",
+    noDoors: "Bez vrata",
+    hingedDoors: "Klasična vrata",
+    slidingDoors: "Klizna vrata",
+    doorWidth: "Širina krila",
+    doorHeight: "Visina krila",
+    handleType: "Tip kvake",
+    barHandle: "Ručka",
+    knobHandle: "Okrugla kvaka",
+    edgeHandle: "Profil ručka",
+    recessedHandle: "Ukopana ručka",
+    slidingPullHandle: "Ručka za klizna",
+    stock: "Skladišni format",
     generate: "Napravi nalog iz rendera",
     bom: "Automatska specifikacija",
     cut: "Rezna optimizacija",
@@ -182,9 +220,9 @@ const copy = {
     series: "Serija",
     inside: "Unutra",
     outside: "Vani",
-    hinges: "sarke",
-    screws: "sarafi",
-    boards: "Ploce",
+    hinges: "šarke",
+    screws: "šarafi",
+    boards: "Ploče",
     productionPush: "Slanje u proizvodnju",
     fixed: "Fiksno",
     tilt: "Kip",
@@ -200,71 +238,101 @@ const copy = {
     risk: "Rizik",
     studio: "3D render production",
     materialBrain: "Materijalni mozak",
-    warehouseFit: "Provjera skladista",
+    warehouseFit: "Provjera skladišta",
     liveEngine: "Live WebGL engine",
     studioQuality: "Studio kvalitet",
     cncPath: "CNC putanja",
-    stockYield: "Iskoristenje",
+    stockYield: "Iskorištenje",
     profileDepth: "Dubina profila",
     clearOpening: "Svijetli otvor",
     materialStack: "Slojevi materijala",
     readyPieces: "Spremni komadi",
     profileColors: "Boje profila",
     outsidePalette: "Vanjska paleta",
-    insidePalette: "Unutrasnja paleta",
-    physicalCheck: "Fizicka provjera",
+    insidePalette: "Unutrašnja paleta",
+    physicalCheck: "Fizička provjera",
     validGeometry: "Geometrija je izvodljiva",
-    physicalIssue: "Fizicki problem",
+    physicalIssue: "Fizički problem",
     saveElement: "Spremi element",
     elementSaved: "Element spremljen",
     placementStudio: "Studio za prostor",
-    uploadSpacePhoto: "Uslikaj / ucitaj prostor",
-    manualPlacement: "Rucno pozicioniranje",
+    uploadSpacePhoto: "Uslikaj / učitaj prostor",
+    manualPlacement: "Ručno pozicioniranje",
     moveMode: "Pomjeranje",
     rotateMode: "Rotacija",
     xPosition: "Lijevo / desno",
     yPosition: "Gore / dole",
-    scale: "Velicina",
+    scale: "Veličina",
     rotation: "Rotacija",
     yaw: "Okret lijevo / desno",
     pitch: "Nagib gore / dole",
     roll: "Okretanje",
     resetPlacement: "Resetuj poziciju",
     zoom: "Zoom",
-    zoomIn: "Priblizi render",
+    zoomIn: "Približi render",
     zoomOut: "Udalji render",
     resetZoom: "Resetuj zoom",
     stockTextures: "Teksture iz magacina",
-    noStockTextures: "U magacinu jos nema ucitane teksture.",
+    noStockTextures: "U magacinu još nema učitane teksture.",
     useBaseColor: "Samo boja",
     outsideTexture: "Vanjska tekstura",
-    insideTexture: "Unutrasnja tekstura",
-    panelTexture: "Panel / namjestaj tekstura",
+    insideTexture: "Unutrašnja tekstura",
+    panelTexture: "Panel / namještaj tekstura",
     saveFirst: "Prvo spremi renderovani element, zatim dodaj fotografiju prostora.",
     roomPhotoHint: "Dodaj fotografiju prostorije i pomjeraj element direktno po slici.",
-    impossibleFrame: "Profil je predebeo za zadatu sirinu/visinu ili broj podjela.",
-    impossibleDepth: "Dubina nije logicna u odnosu na sirinu/visinu elementa.",
-    impossibleStock: "Skladisni format mora biti pozitivan."
+    impossibleFrame: "Profil je predebeo za zadatu širinu/visinu ili broj podjela.",
+    impossibleDepth: "Dubina nije logična u odnosu na širinu/visinu elementa.",
+    impossibleStock: "Skladišni format mora biti pozitivan."
   },
   de: {
     family: "Produkttyp",
-    joinery: "Fenster/Tueren",
-    furniture: "Moebel",
-    universal: "Universalrahmen",
+    joinery: "Fenster/Türen",
+    furniture: "Küchen",
+    universal: "Möbel",
+    fence: "Geländer",
     dimensions: "Abmessungen",
     width: "Breite",
-    height: "Hoehe",
+    fenceLength: "Länge",
+    height: "Höhe",
     depth: "Tiefe",
-    frame: "Profil / Staerke",
+    frame: "Profil / Stärke",
     divisions: "Teilungen",
+    modules: "Module",
+    fenceLayout: "Geländeraufteilung",
+    fenceSections: "Segmente",
+    fenceRails: "Riegel",
+    verticalModules: "Vertikale Module",
+    shelfRows: "Fächer / Reihen",
+    boardThickness: "Plattenstärke",
+    fenceProfile: "Pfosten-/Riegelprofil",
+    joineryMaterials: "Profile und Füllungen",
+    kitchenMaterials: "Küchenmaterialien",
+    furnitureMaterials: "Möbelmaterialien",
+    fenceMaterials: "Geländermaterialien",
+    profileFormat: "Profilformat",
+    glassFormat: "Glasformat",
+    boardFormat: "Plattenformat",
     vDivisions: "Vertikal",
     hDivisions: "Horizontal",
-    opening: "Oeffnung",
+    opening: "Öffnung",
+    doorHardware: "Türen und Griffe",
+    doorSystem: "Türsystem",
+    noDoors: "Ohne Türen",
+    hingedDoors: "Drehtüren",
+    slidingDoors: "Schiebetüren",
+    doorWidth: "Türblattbreite",
+    doorHeight: "Türblatthöhe",
+    handleType: "Grifftyp",
+    barHandle: "Stangengriff",
+    knobHandle: "Knopfgriff",
+    edgeHandle: "Profilgriff",
+    recessedHandle: "Muschelgriff",
+    slidingPullHandle: "Schiebetürgriff",
     stock: "Lagerformat",
     generate: "Auftrag aus Render erstellen",
-    bom: "Automatische Stueckliste",
+    bom: "Automatische Stückliste",
     cut: "Zuschnittoptimierung",
-    fit: "Formatpruefung",
+    fit: "Formatprüfung",
     waste: "Verschnitt",
     panes: "Felder",
     bars: "Stangen",
@@ -272,8 +340,8 @@ const copy = {
     qty: "Menge",
     series: "Serie",
     inside: "Innen",
-    outside: "Aussen",
-    hinges: "Baender",
+    outside: "Außen",
+    hinges: "Bänder",
     screws: "Schrauben",
     boards: "Platten",
     productionPush: "In Produktion geben",
@@ -287,23 +355,23 @@ const copy = {
     panel: "Paneel",
     gasket: "Dichtung",
     hardware: "Beschlag",
-    ok: "Verfuegbar",
+    ok: "Verfügbar",
     risk: "Risiko",
     studio: "3D Produktionsrender",
     materialBrain: "Materiallogik",
-    warehouseFit: "Lagerpruefung",
+    warehouseFit: "Lagerprüfung",
     liveEngine: "Live WebGL Engine",
-    studioQuality: "Studioqualitaet",
+    studioQuality: "Studioqualität",
     cncPath: "CNC Pfad",
     stockYield: "Ausbeute",
     profileDepth: "Profiltiefe",
-    clearOpening: "Lichte Oeffnung",
+    clearOpening: "Lichte Öffnung",
     materialStack: "Materialschichten",
     readyPieces: "Fertige Teile",
     profileColors: "Profilfarben",
-    outsidePalette: "Aussenpalette",
+    outsidePalette: "Außenpalette",
     insidePalette: "Innenpalette",
-    physicalCheck: "Physische Pruefung",
+    physicalCheck: "Physische Prüfung",
     validGeometry: "Geometrie ist machbar",
     physicalIssue: "Physisches Problem",
     saveElement: "Element speichern",
@@ -315,42 +383,72 @@ const copy = {
     rotateMode: "Drehen",
     xPosition: "Links / rechts",
     yPosition: "Oben / unten",
-    scale: "Groesse",
+    scale: "Größe",
     rotation: "Rotation",
     yaw: "Drehung links / rechts",
     pitch: "Neigung oben / unten",
     roll: "Rollen",
     resetPlacement: "Position resetten",
     zoom: "Zoom",
-    zoomIn: "Render vergroessern",
+    zoomIn: "Render vergrößern",
     zoomOut: "Render verkleinern",
     resetZoom: "Zoom resetten",
     stockTextures: "Texturen aus dem Lager",
     noStockTextures: "Im Lager ist noch keine Textur geladen.",
     useBaseColor: "Nur Farbe",
-    outsideTexture: "Aussentextur",
+    outsideTexture: "Außentextur",
     insideTexture: "Innentextur",
-    panelTexture: "Paneel/Moebel-Textur",
-    saveFirst: "Render-Element speichern, dann Raumfoto hinzufuegen.",
+    panelTexture: "Paneel/Möbel-Textur",
+    saveFirst: "Render-Element speichern, dann Raumfoto hinzufügen.",
     roomPhotoHint: "Raumfoto laden und Element direkt im Bild bewegen.",
-    impossibleFrame: "Profil ist fuer Breite/Hoehe oder Teilungen zu stark.",
-    impossibleDepth: "Tiefe ist im Verhaeltnis zu Breite/Hoehe nicht plausibel.",
+    impossibleFrame: "Profil ist für Breite/Höhe oder Teilungen zu stark.",
+    impossibleDepth: "Tiefe ist im Verhältnis zu Breite/Höhe nicht plausibel.",
     impossibleStock: "Lagerformat muss positiv sein."
   },
   it: {
     family: "Tipo prodotto",
     joinery: "Serramenti",
-    furniture: "Mobili",
-    universal: "Telaio universale",
+    furniture: "Cucine",
+    universal: "Mobili",
+    fence: "Ringhiere",
     dimensions: "Dimensioni",
     width: "Larghezza",
+    fenceLength: "Lunghezza",
     height: "Altezza",
-    depth: "Profondita",
+    depth: "Profondità",
     frame: "Profilo / spessore",
     divisions: "Divisioni",
+    modules: "Moduli",
+    fenceLayout: "Layout ringhiera",
+    fenceSections: "Segmenti",
+    fenceRails: "Traversi",
+    verticalModules: "Moduli verticali",
+    shelfRows: "Ripiani / file",
+    boardThickness: "Spessore pannello",
+    fenceProfile: "Profilo montante/traverso",
+    joineryMaterials: "Profili e tamponamenti",
+    kitchenMaterials: "Materiali cucina",
+    furnitureMaterials: "Materiali mobili",
+    fenceMaterials: "Materiali ringhiera",
+    profileFormat: "Formato profilo",
+    glassFormat: "Formato vetro",
+    boardFormat: "Formato pannello",
     vDivisions: "Verticale",
     hDivisions: "Orizzontale",
     opening: "Apertura",
+    doorHardware: "Ante e maniglie",
+    doorSystem: "Sistema ante",
+    noDoors: "Senza ante",
+    hingedDoors: "Ante battenti",
+    slidingDoors: "Ante scorrevoli",
+    doorWidth: "Larghezza anta",
+    doorHeight: "Altezza anta",
+    handleType: "Tipo maniglia",
+    barHandle: "Maniglia lineare",
+    knobHandle: "Pomolo",
+    edgeHandle: "Maniglia profilo",
+    recessedHandle: "Maniglia incassata",
+    slidingPullHandle: "Maniglia scorrevole",
     stock: "Formato magazzino",
     generate: "Crea ordine dal render",
     bom: "Distinta automatica",
@@ -360,7 +458,7 @@ const copy = {
     panes: "campi",
     bars: "barre",
     pcs: "pz",
-    qty: "Qta",
+    qty: "Qtà",
     series: "Serie",
     inside: "Interno",
     outside: "Esterno",
@@ -384,10 +482,10 @@ const copy = {
     materialBrain: "Logica materiali",
     warehouseFit: "Controllo magazzino",
     liveEngine: "Motore WebGL live",
-    studioQuality: "Qualita studio",
+    studioQuality: "Qualità studio",
     cncPath: "Percorso CNC",
     stockYield: "Resa materiale",
-    profileDepth: "Profondita profilo",
+    profileDepth: "Profondità profilo",
     clearOpening: "Luce netta",
     materialStack: "Strati materiale",
     readyPieces: "Pezzi pronti",
@@ -405,11 +503,11 @@ const copy = {
     moveMode: "Sposta",
     rotateMode: "Ruota",
     xPosition: "Sinistra / destra",
-    yPosition: "Su / giu",
+    yPosition: "Su / giù",
     scale: "Dimensione",
     rotation: "Rotazione",
     yaw: "Rotazione sinistra / destra",
-    pitch: "Inclinazione su / giu",
+    pitch: "Inclinazione su / giù",
     roll: "Rollio",
     resetPlacement: "Reset posizione",
     zoom: "Zoom",
@@ -425,27 +523,57 @@ const copy = {
     saveFirst: "Salva prima l'elemento renderizzato, poi aggiungi la foto ambiente.",
     roomPhotoHint: "Carica una foto ambiente e sposta l'elemento direttamente sull'immagine.",
     impossibleFrame: "Profilo troppo spesso per dimensioni o divisioni.",
-    impossibleDepth: "Profondita non plausibile rispetto a larghezza/altezza.",
+    impossibleDepth: "Profondità non plausibile rispetto a larghezza/altezza.",
     impossibleStock: "Il formato magazzino deve essere positivo."
   },
   es: {
     family: "Tipo de producto",
-    joinery: "Carpinteria",
-    furniture: "Mueble",
-    universal: "Marco universal",
+    joinery: "Carpintería",
+    furniture: "Cocinas",
+    universal: "Muebles",
+    fence: "Barandillas",
     dimensions: "Dimensiones",
     width: "Ancho",
+    fenceLength: "Longitud",
     height: "Alto",
     depth: "Profundidad",
     frame: "Perfil / espesor",
     divisions: "Divisiones",
+    modules: "Módulos",
+    fenceLayout: "Diseño barandilla",
+    fenceSections: "Segmentos",
+    fenceRails: "Travesaños",
+    verticalModules: "Módulos verticales",
+    shelfRows: "Estantes / filas",
+    boardThickness: "Espesor tablero",
+    fenceProfile: "Perfil poste/travesaño",
+    joineryMaterials: "Perfiles y rellenos",
+    kitchenMaterials: "Materiales de cocina",
+    furnitureMaterials: "Materiales de muebles",
+    fenceMaterials: "Materiales de barandilla",
+    profileFormat: "Formato perfil",
+    glassFormat: "Formato vidrio",
+    boardFormat: "Formato tablero",
     vDivisions: "Vertical",
     hDivisions: "Horizontal",
     opening: "Apertura",
-    stock: "Formato almacen",
+    doorHardware: "Puertas y tiradores",
+    doorSystem: "Sistema de puertas",
+    noDoors: "Sin puertas",
+    hingedDoors: "Puertas abatibles",
+    slidingDoors: "Puertas correderas",
+    doorWidth: "Ancho de hoja",
+    doorHeight: "Alto de hoja",
+    handleType: "Tipo de tirador",
+    barHandle: "Tirador lineal",
+    knobHandle: "Pomo",
+    edgeHandle: "Tirador perfil",
+    recessedHandle: "Tirador empotrado",
+    slidingPullHandle: "Tirador corredera",
+    stock: "Formato almacén",
     generate: "Crear orden desde render",
-    bom: "Lista automatica",
-    cut: "Optimizacion corte",
+    bom: "Lista automática",
+    cut: "Optimización corte",
     fit: "Control dimensional",
     waste: "Merma",
     panes: "campos",
@@ -458,7 +586,7 @@ const copy = {
     hinges: "bisagras",
     screws: "tornillos",
     boards: "Tableros",
-    productionPush: "Enviar a produccion",
+    productionPush: "Enviar a producción",
     fixed: "Fijo",
     tilt: "Oscilante",
     turn: "Batiente",
@@ -471,9 +599,9 @@ const copy = {
     hardware: "Herrajes",
     ok: "Disponible",
     risk: "Riesgo",
-    studio: "Render 3D produccion",
-    materialBrain: "Logica de materiales",
-    warehouseFit: "Control almacen",
+    studio: "Render 3D producción",
+    materialBrain: "Lógica de materiales",
+    warehouseFit: "Control almacén",
     liveEngine: "Motor WebGL en vivo",
     studioQuality: "Calidad estudio",
     cncPath: "Ruta CNC",
@@ -485,30 +613,30 @@ const copy = {
     profileColors: "Colores perfil",
     outsidePalette: "Paleta exterior",
     insidePalette: "Paleta interior",
-    physicalCheck: "Control fisico",
-    validGeometry: "Geometria viable",
-    physicalIssue: "Problema fisico",
+    physicalCheck: "Control físico",
+    validGeometry: "Geometría viable",
+    physicalIssue: "Problema físico",
     saveElement: "Guardar elemento",
     elementSaved: "Elemento guardado",
     placementStudio: "Estudio de espacio",
     uploadSpacePhoto: "Tomar/cargar espacio",
-    manualPlacement: "Colocacion manual",
+    manualPlacement: "Colocación manual",
     moveMode: "Mover",
     rotateMode: "Rotar",
     xPosition: "Izquierda / derecha",
     yPosition: "Arriba / abajo",
-    scale: "Tamano",
-    rotation: "Rotacion",
+    scale: "Tamaño",
+    rotation: "Rotación",
     yaw: "Giro izquierda / derecha",
-    pitch: "Inclinacion arriba / abajo",
-    roll: "Rotacion libre",
-    resetPlacement: "Restablecer posicion",
+    pitch: "Inclinación arriba / abajo",
+    roll: "Rotación libre",
+    resetPlacement: "Restablecer posición",
     zoom: "Zoom",
     zoomIn: "Acercar render",
     zoomOut: "Alejar render",
     resetZoom: "Restablecer zoom",
-    stockTextures: "Texturas del almacen",
-    noStockTextures: "Aun no hay textura cargada en almacen.",
+    stockTextures: "Texturas del almacén",
+    noStockTextures: "Aún no hay textura cargada en almacén.",
     useBaseColor: "Solo color",
     outsideTexture: "Textura exterior",
     insideTexture: "Textura interior",
@@ -517,22 +645,52 @@ const copy = {
     roomPhotoHint: "Carga una foto del espacio y mueve el elemento directamente sobre la imagen.",
     impossibleFrame: "Perfil demasiado grueso para dimensiones o divisiones.",
     impossibleDepth: "Profundidad no plausible frente a ancho/alto.",
-    impossibleStock: "El formato de almacen debe ser positivo."
+    impossibleStock: "El formato de almacén debe ser positivo."
   },
   en: {
     family: "Product type",
     joinery: "Joinery",
-    furniture: "Furniture",
-    universal: "Universal frame",
+    furniture: "Kitchens",
+    universal: "Furniture",
+    fence: "Railings",
     dimensions: "Dimensions",
     width: "Width",
+    fenceLength: "Length",
     height: "Height",
     depth: "Depth",
     frame: "Profile / thickness",
     divisions: "Divisions",
+    modules: "Modules",
+    fenceLayout: "Railing layout",
+    fenceSections: "Sections",
+    fenceRails: "Rails",
+    verticalModules: "Vertical modules",
+    shelfRows: "Shelves / rows",
+    boardThickness: "Board thickness",
+    fenceProfile: "Post / rail profile",
+    joineryMaterials: "Profiles and infill",
+    kitchenMaterials: "Kitchen materials",
+    furnitureMaterials: "Furniture materials",
+    fenceMaterials: "Railing materials",
+    profileFormat: "Profile format",
+    glassFormat: "Glass format",
+    boardFormat: "Board format",
     vDivisions: "Vertical",
     hDivisions: "Horizontal",
     opening: "Opening",
+    doorHardware: "Doors and handles",
+    doorSystem: "Door system",
+    noDoors: "No doors",
+    hingedDoors: "Hinged doors",
+    slidingDoors: "Sliding doors",
+    doorWidth: "Leaf width",
+    doorHeight: "Leaf height",
+    handleType: "Handle type",
+    barHandle: "Bar handle",
+    knobHandle: "Knob handle",
+    edgeHandle: "Edge pull",
+    recessedHandle: "Recessed pull",
+    slidingPullHandle: "Sliding pull",
     stock: "Warehouse format",
     generate: "Create order from render",
     bom: "Automatic bill of materials",
@@ -640,6 +798,8 @@ const dimensionBounds: Record<NumericConfigKey, { min: number; max: number }> = 
   quantity: { min: 1, max: 999 },
   verticalDivisions: { min: 1, max: 12 },
   horizontalDivisions: { min: 1, max: 10 },
+  doorWidth: { min: 40, max: 20000 },
+  doorHeight: { min: 40, max: 16000 },
   stockProfileLength: { min: 100, max: 30000 },
   stockGlassWidth: { min: 80, max: 20000 },
   stockGlassHeight: { min: 80, max: 16000 },
@@ -665,6 +825,19 @@ function maxFrameWidth(config: Pick<RenderConfig, "width" | "height" | "vertical
   return Math.max(3, Math.floor(Math.min(paneWidth, paneHeight) * 0.42));
 }
 
+function maxDoorWidth(
+  config: Pick<RenderConfig, "width" | "frameWidth" | "verticalDivisions" | "doorSystem">
+) {
+  const innerWidth = Math.max(40, config.width - config.frameWidth * 2);
+  const leafCount = Math.max(1, config.verticalDivisions);
+  const overlapFactor = config.doorSystem === "sliding" ? 1.18 : 0.96;
+  return Math.max(40, Math.floor((innerWidth / leafCount) * overlapFactor));
+}
+
+function maxDoorHeight(config: Pick<RenderConfig, "height" | "frameWidth">) {
+  return Math.max(40, Math.floor(config.height - config.frameWidth * 2));
+}
+
 function normalizeConfig(config: RenderConfig) {
   const next = { ...config };
   (Object.keys(dimensionBounds) as NumericConfigKey[]).forEach((key) => {
@@ -672,6 +845,8 @@ function normalizeConfig(config: RenderConfig) {
     next[key] = Math.round(clampNumber(next[key], bounds.min, bounds.max)) as never;
   });
   next.frameWidth = clampNumber(next.frameWidth, dimensionBounds.frameWidth.min, maxFrameWidth(next));
+  next.doorWidth = clampNumber(next.doorWidth, dimensionBounds.doorWidth.min, maxDoorWidth(next));
+  next.doorHeight = clampNumber(next.doorHeight, dimensionBounds.doorHeight.min, maxDoorHeight(next));
   return next;
 }
 
@@ -798,7 +973,43 @@ function createFrontFacingElementImage(config: RenderConfig) {
   context.shadowBlur = 26;
   context.shadowOffsetY = 22;
 
-  if (config.family === "furniture") {
+  if (config.family === "fence") {
+    const post = clampNumber(frame * 0.9, 12, 72);
+    const rail = clampNumber(frame * 0.58, 8, 46);
+    const sections = Math.max(1, config.verticalDivisions);
+    const rails = Math.max(1, config.horizontalDivisions);
+
+    context.shadowColor = "transparent";
+    context.fillStyle = outside;
+
+    for (let index = 0; index <= sections; index += 1) {
+      const postX = x + (modelWidth / sections) * index - post / 2;
+      context.fillRect(postX, y, post, modelHeight);
+    }
+
+    for (let railIndex = 0; railIndex < rails; railIndex += 1) {
+      const railY =
+        rails === 1
+          ? y + modelHeight * 0.5 - rail / 2
+          : y + modelHeight * (0.18 + (0.64 / Math.max(1, rails - 1)) * railIndex) - rail / 2;
+      context.fillRect(x, railY, modelWidth, rail);
+    }
+
+    context.fillStyle = inside;
+    for (let section = 0; section < sections; section += 1) {
+      const sectionWidth = modelWidth / sections;
+      const centerX = x + sectionWidth * (section + 0.5);
+      drawRoundedRect(
+        context,
+        centerX - post * 0.24,
+        y + post * 0.8,
+        post * 0.48,
+        modelHeight - post * 1.6,
+        Math.max(3, post * 0.14)
+      );
+      context.fill();
+    }
+  } else if (config.family === "furniture" || config.family === "universal") {
     drawRoundedRect(context, x, y, modelWidth, modelHeight, 10);
     context.fillStyle = outside;
     context.fill();
@@ -816,13 +1027,26 @@ function createFrontFacingElementImage(config: RenderConfig) {
       const lineX = x + (modelWidth / config.verticalDivisions) * column - board * 0.32;
       context.fillRect(lineX, y + board, board * 0.64, modelHeight - board * 2);
     }
-  } else if (config.family === "universal") {
-    context.fillStyle = outside;
-    context.fillRect(x, y, modelWidth, frame);
-    context.fillRect(x, y + modelHeight - frame, modelWidth, frame);
-    context.fillRect(x, y, frame, modelHeight);
-    context.fillRect(x + modelWidth - frame, y, frame, modelHeight);
-    context.shadowColor = "transparent";
+
+    if (config.family === "furniture" && config.doorSystem !== "none") {
+      const doorCount = Math.max(1, config.verticalDivisions);
+      const doorWidth = (modelWidth - board * 2) / doorCount;
+      const doorHeight = clampNumber(
+        (config.doorHeight / Math.max(1, config.height)) * modelHeight,
+        modelHeight * 0.34,
+        modelHeight - board * 2
+      );
+      const doorY = y + modelHeight / 2 - doorHeight / 2;
+
+      context.fillStyle = outside;
+      for (let column = 0; column < doorCount; column += 1) {
+        const doorX = x + board + doorWidth * column;
+        context.fillRect(doorX + 3, doorY, doorWidth - 6, doorHeight);
+        context.fillStyle = "rgba(255, 255, 255, 0.24)";
+        context.fillRect(doorX + doorWidth * 0.72, doorY + doorHeight * 0.24, 5, doorHeight * 0.32);
+        context.fillStyle = outside;
+      }
+    }
   } else {
     drawRoundedRect(context, x, y, modelWidth, modelHeight, 8);
     context.fillStyle = outside;
@@ -1020,6 +1244,21 @@ function ProductionThreeScene({
       return mesh;
     }
 
+    function addSphere(
+      target: THREE.Group,
+      radius: number,
+      position: THREE.Vector3Tuple,
+      material: THREE.Material
+    ) {
+      const geometry = new THREE.SphereGeometry(radius, 24, 16);
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.set(position[0], position[1], position[2]);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      target.add(mesh);
+      return mesh;
+    }
+
     function addGuide(points: THREE.Vector3Tuple[], color = 0xf97316) {
       const geometry = new THREE.BufferGeometry().setFromPoints(
         points.map((point) => new THREE.Vector3(point[0], point[1], point[2]))
@@ -1037,14 +1276,9 @@ function ProductionThreeScene({
     function addDimensionGuides() {
       const z = depth / 2 + 0.2;
       const bottom = -height / 2 - 0.28;
-      const left = -width / 2 - 0.28;
       addGuide([[-width / 2, bottom, z], [width / 2, bottom, z]]);
-      addGuide([[left, -height / 2, z], [left, height / 2, z]], 0x2f8f62);
-      addGuide([[width / 2 + 0.18, -height / 2, -depth / 2], [width / 2 + 0.56, -height / 2 + 0.28, depth / 2]], 0x2e77a8);
       addBox(model, [0.04, 0.18, 0.04], [-width / 2, bottom, z], glowMaterial, false);
       addBox(model, [0.04, 0.18, 0.04], [width / 2, bottom, z], glowMaterial, false);
-      addBox(model, [0.18, 0.04, 0.04], [left, -height / 2, z], glowMaterial, false);
-      addBox(model, [0.18, 0.04, 0.04], [left, height / 2, z], glowMaterial, false);
     }
 
     function buildJoinery() {
@@ -1105,6 +1339,8 @@ function ProductionThreeScene({
 
     function buildFurniture() {
       const board = Math.max(frame * 0.85, 0.14);
+      const innerWidth = Math.max(0.28, width - board * 2);
+      const innerHeight = Math.max(0.28, height - board * 2);
       addBox(model, [board, height, depth], [-width / 2 + board / 2, 0, 0], boardMaterial);
       addBox(model, [board, height, depth], [width / 2 - board / 2, 0, 0], boardMaterial);
       addBox(model, [width, board, depth], [0, height / 2 - board / 2, 0], boardMaterial);
@@ -1112,44 +1348,194 @@ function ProductionThreeScene({
       addBox(model, [width - board * 2, height - board * 2, board * 0.35], [0, 0, -depth / 2 + board * 0.18], boardMaterial, false);
 
       for (let row = 1; row < config.horizontalDivisions; row += 1) {
-        addBox(model, [width - board * 2, board * 0.72, depth * 0.92], [0, height / 2 - (height / config.horizontalDivisions) * row, 0], boardMaterial);
+        addBox(model, [innerWidth, board * 0.72, depth * 0.92], [0, height / 2 - (height / config.horizontalDivisions) * row, 0], boardMaterial);
       }
       for (let column = 1; column < config.verticalDivisions; column += 1) {
         addBox(model, [board * 0.72, height - board * 2, depth * 0.92], [-width / 2 + (width / config.verticalDivisions) * column, 0, 0], boardMaterial);
       }
 
-      const doorWidth = (width - board * 2) / Math.max(1, config.verticalDivisions);
-      for (let column = 0; column < config.verticalDivisions; column += 1) {
-        const centerX = -width / 2 + board + doorWidth * (column + 0.5);
-        addBox(model, [doorWidth * 0.84, height * 0.72, board * 0.18], [centerX, 0, depth / 2 + board * 0.12], boardMaterial);
-        addBox(model, [board * 0.12, height * 0.2, board * 0.2], [centerX + doorWidth * 0.25, 0, depth / 2 + board * 0.28], metalMaterial);
+      const doorCount = Math.max(1, config.verticalDivisions);
+      const moduleWidth = innerWidth / doorCount;
+      const doorThickness = Math.max(board * 0.2, 0.035);
+      const doorWidth = clampNumber(
+        config.doorWidth / 620,
+        Math.min(0.12, moduleWidth * 0.5),
+        config.doorSystem === "sliding" ? moduleWidth * 1.16 : moduleWidth * 0.96
+      );
+      const doorHeight = clampNumber(config.doorHeight / 620, 0.12, innerHeight * 0.98);
+      const frontZ = depth / 2 + doorThickness * 0.72;
+
+      function addFurnitureHandle(
+        centerX: number,
+        centerY: number,
+        panelZ: number,
+        panelWidth: number,
+        panelHeight: number,
+        sideSign: number
+      ) {
+        const handleX = centerX + sideSign * panelWidth * 0.33;
+        const handleZ = panelZ + doorThickness * 0.9;
+        const handleHeight = clampNumber(panelHeight * 0.28, 0.12, 0.62);
+
+        if (config.handleType === "knob") {
+          addSphere(model, clampNumber(board * 0.18, 0.035, 0.07), [handleX, centerY, handleZ], metalMaterial);
+          return;
+        }
+
+        if (config.handleType === "edge") {
+          addBox(
+            model,
+            [Math.max(board * 0.09, 0.025), panelHeight * 0.86, Math.max(board * 0.08, 0.026)],
+            [centerX + sideSign * (panelWidth / 2 - board * 0.05), centerY, handleZ],
+            metalMaterial,
+            false
+          );
+          return;
+        }
+
+        if (config.handleType === "recessed") {
+          addBox(
+            model,
+            [Math.max(board * 0.18, 0.05), handleHeight * 1.15, Math.max(board * 0.04, 0.018)],
+            [handleX, centerY, handleZ],
+            gasketMaterial,
+            false
+          );
+          addBox(
+            model,
+            [Math.max(board * 0.08, 0.02), handleHeight * 0.86, Math.max(board * 0.035, 0.016)],
+            [handleX, centerY, handleZ + 0.006],
+            metalMaterial,
+            false
+          );
+          return;
+        }
+
+        if (config.handleType === "sliding-pull") {
+          addBox(
+            model,
+            [Math.max(board * 0.22, 0.06), handleHeight * 1.35, Math.max(board * 0.045, 0.02)],
+            [handleX, centerY, handleZ],
+            gasketMaterial,
+            false
+          );
+          addBox(
+            model,
+            [Math.max(board * 0.04, 0.016), handleHeight * 1.18, Math.max(board * 0.035, 0.016)],
+            [handleX + sideSign * board * 0.05, centerY, handleZ + 0.008],
+            metalMaterial,
+            false
+          );
+          return;
+        }
+
+        addBox(
+          model,
+          [Math.max(board * 0.12, 0.035), handleHeight, Math.max(board * 0.1, 0.028)],
+          [handleX, centerY, handleZ],
+          metalMaterial,
+          false
+        );
+      }
+
+      if (config.doorSystem === "sliding") {
+        addBox(model, [innerWidth, Math.max(board * 0.18, 0.04), Math.max(board * 0.18, 0.035)], [0, doorHeight / 2 + board * 0.34, frontZ], metalMaterial, false);
+        addBox(model, [innerWidth, Math.max(board * 0.18, 0.04), Math.max(board * 0.18, 0.035)], [0, -doorHeight / 2 - board * 0.34, frontZ], metalMaterial, false);
+      }
+
+      if (config.doorSystem !== "none") {
+        for (let column = 0; column < doorCount; column += 1) {
+          const sideSign = column % 2 === 0 ? 1 : -1;
+          const centerX =
+            config.doorSystem === "sliding"
+              ? doorCount === 1
+                ? 0
+                : -Math.max(0, innerWidth - doorWidth) / 2 +
+                  (Math.max(0, innerWidth - doorWidth) / (doorCount - 1)) * column
+              : -innerWidth / 2 + moduleWidth * (column + 0.5);
+          const panelZ =
+            config.doorSystem === "sliding"
+              ? frontZ + (column % 2) * doorThickness * 1.35
+              : frontZ;
+
+          addBox(model, [doorWidth, doorHeight, doorThickness], [centerX, 0, panelZ], boardMaterial);
+          if (config.doorSystem === "hinged") {
+            [-0.32, 0.32].forEach((offset) => {
+              addBox(
+                model,
+                [Math.max(board * 0.12, 0.035), Math.max(board * 0.45, 0.095), Math.max(board * 0.12, 0.032)],
+                [centerX - sideSign * (doorWidth / 2 - board * 0.06), offset * doorHeight, panelZ + doorThickness * 0.65],
+                metalMaterial,
+                false
+              );
+            });
+          }
+          addFurnitureHandle(centerX, 0, panelZ, doorWidth, doorHeight, sideSign);
+        }
       }
     }
 
     function buildUniversal() {
-      const bar = Math.max(frame, 0.13);
-      const frontZ = depth / 2;
-      const backZ = -depth / 2;
-      [frontZ, backZ].forEach((z) => {
-        addBox(model, [width, bar, bar], [0, height / 2 - bar / 2, z], profileMaterial);
-        addBox(model, [width, bar, bar], [0, -height / 2 + bar / 2, z], profileMaterial);
-        addBox(model, [bar, height, bar], [-width / 2 + bar / 2, 0, z], profileMaterial);
-        addBox(model, [bar, height, bar], [width / 2 - bar / 2, 0, z], profileMaterial);
-      });
-      [
-        [-width / 2 + bar / 2, height / 2 - bar / 2],
-        [width / 2 - bar / 2, height / 2 - bar / 2],
-        [-width / 2 + bar / 2, -height / 2 + bar / 2],
-        [width / 2 - bar / 2, -height / 2 + bar / 2]
-      ].forEach(([x, y]) => {
-        addBox(model, [bar * 0.72, bar * 0.72, depth], [x, y, 0], innerMaterial);
-      });
+      const board = Math.max(frame * 0.86, 0.12);
+      const innerWidth = Math.max(0.28, width - board * 2);
+      const innerHeight = Math.max(0.28, height - board * 2);
+      const backThickness = Math.max(board * 0.32, 0.035);
+      addBox(model, [width, board, depth], [0, height / 2 - board / 2, 0], boardMaterial);
+      addBox(model, [width, board, depth], [0, -height / 2 + board / 2, 0], boardMaterial);
+      addBox(model, [board, height, depth], [-width / 2 + board / 2, 0, 0], boardMaterial);
+      addBox(model, [board, height, depth], [width / 2 - board / 2, 0, 0], boardMaterial);
+      addBox(model, [innerWidth, innerHeight, backThickness], [0, 0, -depth / 2 + backThickness / 2], innerMaterial, false);
+
+      for (let row = 1; row < config.horizontalDivisions; row += 1) {
+        addBox(model, [innerWidth, board * 0.72, depth * 0.9], [0, height / 2 - (height / config.horizontalDivisions) * row, 0], boardMaterial);
+      }
+      for (let column = 1; column < config.verticalDivisions; column += 1) {
+        addBox(model, [board * 0.72, innerHeight, depth * 0.9], [-width / 2 + (width / config.verticalDivisions) * column, 0, 0], boardMaterial);
+      }
+
+      const plinthHeight = Math.min(board * 1.5, height * 0.12);
+      addBox(model, [width * 0.82, plinthHeight, depth * 0.72], [0, -height / 2 - plinthHeight * 0.35, -depth * 0.04], gasketMaterial, false);
+    }
+
+    function buildFence() {
+      const post = Math.max(frame * 0.92, 0.09);
+      const rail = Math.max(frame * 0.5, 0.055);
+      const railDepth = Math.max(depth * 0.62, post * 0.82);
+      const sections = Math.max(1, config.verticalDivisions);
+      const rails = Math.max(1, config.horizontalDivisions);
+      const sectionWidth = width / sections;
+
+      for (let index = 0; index <= sections; index += 1) {
+        const x = -width / 2 + sectionWidth * index;
+        addBox(model, [post, height, post], [x, 0, 0], profileMaterial);
+        addBox(model, [post * 1.12, post * 0.18, post * 1.12], [x, height / 2 + post * 0.12, 0], metalMaterial, false);
+        addBox(model, [post * 1.36, post * 0.16, post * 1.36], [x, -height / 2 - post * 0.08, 0], gasketMaterial, false);
+      }
+
+      for (let railIndex = 0; railIndex < rails; railIndex += 1) {
+        const y =
+          rails === 1
+            ? 0
+            : -height * 0.34 + (height * 0.68 / Math.max(1, rails - 1)) * railIndex;
+        addBox(model, [width, rail, railDepth], [0, y, depth * 0.04], innerMaterial);
+      }
+
+      const balusterCount = Math.min(28, Math.max(sections * 2, sections + rails));
+      const balusterHeight = height * 0.72;
+      for (let index = 0; index < balusterCount; index += 1) {
+        const x = -width / 2 + (width / (balusterCount + 1)) * (index + 1);
+        addBox(model, [rail * 0.52, balusterHeight, rail * 0.52], [x, 0, depth * 0.22], boardMaterial);
+      }
+
+      addBox(model, [width + post * 0.7, rail * 0.72, railDepth * 1.08], [0, height / 2 - rail * 0.7, depth * 0.05], profileMaterial);
     }
 
     if (config.family === "furniture") {
       buildFurniture();
     } else if (config.family === "universal") {
       buildUniversal();
+    } else if (config.family === "fence") {
+      buildFence();
     } else {
       buildJoinery();
     }
@@ -1327,6 +1713,10 @@ export function ProductionRenderer({
     verticalDivisions: 2,
     horizontalDivisions: 1,
     openingMode: "tilt-turn",
+    doorSystem: "hinged",
+    doorWidth: 520,
+    doorHeight: 1420,
+    handleType: "bar",
     series: "PVC 82MD",
     profileStatus: "DOSTUPNO",
     glassStatus: "DSL - DOSTUPNO",
@@ -1351,13 +1741,35 @@ export function ProductionRenderer({
     Partial<Record<NumericConfigKey, string>>
   >({});
   const [isDraggingPlacement, setIsDraggingPlacement] = useState(false);
+  const renderStageRef = useRef<HTMLDivElement | null>(null);
   const placementRef = useRef<HTMLDivElement | null>(null);
+  const roomPhotoInputRef = useRef<HTMLInputElement | null>(null);
 
   const selectedElement =
     savedElements.find((element) => element.id === selectedElementId) ??
     savedElements[0] ??
     null;
   const placement = selectedElement?.placement ?? createDefaultPlacement();
+
+  useEffect(() => {
+    const stage = renderStageRef.current;
+    if (!stage) {
+      return undefined;
+    }
+
+    function handleWheel(event: globalThis.WheelEvent) {
+      event.preventDefault();
+      event.stopPropagation();
+      setRenderZoom((previous) =>
+        Math.round(clampNumber(previous + (event.deltaY > 0 ? -7 : 7), 55, 180))
+      );
+    }
+
+    stage.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      stage.removeEventListener("wheel", handleWheel);
+    };
+  }, []);
 
   const stockTextures = useMemo<StockTexture[]>(
     () =>
@@ -1409,36 +1821,80 @@ export function ProductionRenderer({
 
   const calculations = useMemo(() => {
     const panes = Math.max(1, config.verticalDivisions * config.horizontalDivisions);
+    const isFenceConfig = config.family === "fence";
+    const fenceSections = Math.max(1, config.verticalDivisions);
+    const fenceRails = Math.max(1, config.horizontalDivisions);
     const frameLinearMm =
-      2 * (config.width + config.height) +
-      Math.max(0, config.verticalDivisions - 1) * (config.height - config.frameWidth * 2) +
-      Math.max(0, config.horizontalDivisions - 1) * (config.width - config.frameWidth * 2);
+      isFenceConfig
+        ? 0
+        : 2 * (config.width + config.height) +
+          Math.max(0, config.verticalDivisions - 1) * (config.height - config.frameWidth * 2) +
+          Math.max(0, config.horizontalDivisions - 1) * (config.width - config.frameWidth * 2);
     const sashLinearMm =
-      config.openingMode === "fixed"
+      config.family !== "joinery" || config.openingMode === "fixed"
         ? 0
         : panes * 2 * (config.width / config.verticalDivisions + config.height / config.horizontalDivisions) * 0.82;
-    const totalProfileMm = (frameLinearMm + sashLinearMm) * config.quantity;
-    const bars = Math.ceil(totalProfileMm / config.stockProfileLength);
-    const profileWasteMm = bars * config.stockProfileLength - totalProfileMm;
+    const doorLinearMm =
+      config.family === "furniture" && config.doorSystem !== "none"
+        ? 2 *
+          (config.doorWidth + config.doorHeight) *
+          Math.max(1, config.verticalDivisions) *
+          config.quantity
+        : 0;
+    const fenceLinearMm = isFenceConfig
+      ? ((fenceSections + 1) * config.height +
+          fenceRails * config.width +
+          Math.max(0, fenceSections * 2) * config.height * 0.72) *
+        config.quantity
+      : 0;
+    const totalProfileMm = (frameLinearMm + sashLinearMm) * config.quantity + doorLinearMm + fenceLinearMm;
+    const bars = totalProfileMm > 0 ? Math.ceil(totalProfileMm / config.stockProfileLength) : 0;
+    const profileWasteMm = bars > 0 ? bars * config.stockProfileLength - totalProfileMm : 0;
     const glassWidth = Math.max(100, config.width / config.verticalDivisions - config.frameWidth * 2.2);
     const glassHeight = Math.max(100, config.height / config.horizontalDivisions - config.frameWidth * 2.2);
-    const glassArea = (glassWidth * glassHeight * panes * config.quantity) / 1_000_000;
+    const glassArea =
+      config.family === "joinery"
+        ? (glassWidth * glassHeight * panes * config.quantity) / 1_000_000
+        : 0;
     const glassFits =
-      glassWidth <= config.stockGlassWidth &&
-      glassHeight <= config.stockGlassHeight;
+      config.family !== "joinery" ||
+      (glassWidth <= config.stockGlassWidth &&
+        glassHeight <= config.stockGlassHeight);
+    const moduleWidth = config.width / Math.max(1, config.verticalDivisions);
+    const moduleHeight = config.height / Math.max(1, config.horizontalDivisions);
     const panelFits =
-      config.width <= config.stockPanelWidth && config.height <= config.stockPanelHeight;
-    const gasket = ((config.width + config.height) * 2 * panes * config.quantity) / 1000;
+      config.family === "joinery"
+        ? config.width <= config.stockPanelWidth && config.height <= config.stockPanelHeight
+        : isFenceConfig
+          ? true
+        : Math.max(moduleWidth, config.family === "furniture" ? config.doorWidth : 0) <= config.stockPanelWidth &&
+          Math.max(moduleHeight, config.family === "furniture" ? config.doorHeight : 0) <= config.stockPanelHeight;
+    const gasket =
+      config.family === "joinery"
+        ? ((config.width + config.height) * 2 * panes * config.quantity) / 1000
+        : 0;
     const screws = Math.ceil((totalProfileMm / 1000) * 6);
     const hinges =
-      config.openingMode === "fixed" || config.openingMode === "sliding"
-        ? 0
-        : Math.max(2, config.horizontalDivisions * 2) * config.quantity;
-    const boardArea =
       config.family === "furniture"
+        ? config.doorSystem === "hinged"
+          ? Math.max(2, config.verticalDivisions * 2) * config.quantity
+          : 0
+        : isFenceConfig
+          ? 0
+        : config.openingMode === "fixed" || config.openingMode === "sliding"
+          ? 0
+          : Math.max(2, config.horizontalDivisions * 2) * config.quantity;
+    const furnitureDoorArea =
+      config.family === "furniture" && config.doorSystem !== "none"
+        ? (config.doorWidth * config.doorHeight * config.verticalDivisions * config.quantity) /
+          1_000_000
+        : 0;
+    const boardArea =
+      config.family === "furniture" || config.family === "universal"
         ? ((config.width * config.height * 2 + config.width * config.depth * 2 + config.height * config.depth * 2) *
             config.quantity) /
-          1_000_000
+            1_000_000 +
+          furnitureDoorArea
         : 0;
 
     return {
@@ -1479,16 +1935,20 @@ export function ProductionRenderer({
     const clearHeight = paneHeight - config.frameWidth * 2.2;
     const largestFace = Math.max(config.width, config.height);
 
-    if (clearWidth < 30 || clearHeight < 30 || config.frameWidth > maxFrameWidth(config)) {
+    if (
+      (config.family === "joinery" && (clearWidth < 30 || clearHeight < 30)) ||
+      config.frameWidth > maxFrameWidth(config)
+    ) {
       issues.push(t.impossibleFrame);
     }
     if (config.depth > largestFace * 2.25) {
       issues.push(t.impossibleDepth);
     }
     if (
-      config.stockProfileLength <= 0 ||
-      config.stockGlassWidth <= 0 ||
-      config.stockGlassHeight <= 0 ||
+      ((config.family === "joinery" || config.family === "fence") &&
+        (config.stockProfileLength <= 0 ||
+          (config.family === "joinery" &&
+            (config.stockGlassWidth <= 0 || config.stockGlassHeight <= 0)))) ||
       config.stockPanelWidth <= 0 ||
       config.stockPanelHeight <= 0
     ) {
@@ -1513,7 +1973,7 @@ export function ProductionRenderer({
   const divisionRows = Array.from({ length: config.horizontalDivisions });
 
   function renderProductModel() {
-    if (config.family === "furniture") {
+    if (config.family === "furniture" || config.family === "universal") {
       return (
         <div className="css-product furniture-model" style={modelVars}>
           <div className="furniture-back" />
@@ -1527,25 +1987,6 @@ export function ProductionRenderer({
           {divisionColumns.slice(1).map((_, index) => (
             <span className="furniture-divider" key={`divider-${index}`} style={{ left: `${((index + 1) / config.verticalDivisions) * 100}%` }} />
           ))}
-        </div>
-      );
-    }
-
-    if (config.family === "universal") {
-      return (
-        <div className="css-product universal-model" style={modelVars}>
-          <span className="beam top-front" />
-          <span className="beam bottom-front" />
-          <span className="beam left-front" />
-          <span className="beam right-front" />
-          <span className="beam top-back" />
-          <span className="beam bottom-back" />
-          <span className="beam left-back" />
-          <span className="beam right-back" />
-          <span className="beam depth-a" />
-          <span className="beam depth-b" />
-          <span className="beam depth-c" />
-          <span className="beam depth-d" />
         </div>
       );
     }
@@ -1579,6 +2020,55 @@ export function ProductionRenderer({
 
   function update<K extends keyof RenderConfig>(key: K, value: RenderConfig[K]) {
     setConfig((previous) => normalizeConfig({ ...previous, [key]: value }));
+  }
+
+  function applyFamilyPreset(family: RenderFamily) {
+    setDraftNumbers({});
+    setConfig((previous) => {
+      const presets: Record<RenderFamily, Partial<RenderConfig>> = {
+        joinery: {
+          width: 1400,
+          height: 1600,
+          depth: 82,
+          frameWidth: 82,
+          verticalDivisions: 2,
+          horizontalDivisions: 1,
+          openingMode: "tilt-turn"
+        },
+        furniture: {
+          width: 1195,
+          height: 655,
+          depth: 300,
+          frameWidth: 15,
+          verticalDivisions: 2,
+          horizontalDivisions: 2,
+          doorSystem: "hinged",
+          doorWidth: 520,
+          doorHeight: 600
+        },
+        universal: {
+          width: 1200,
+          height: 1800,
+          depth: 420,
+          frameWidth: 18,
+          verticalDivisions: 2,
+          horizontalDivisions: 4
+        },
+        fence: {
+          width: 3200,
+          height: 1200,
+          depth: 80,
+          frameWidth: 70,
+          verticalDivisions: 4,
+          horizontalDivisions: 3,
+          profileStatus: "DOSTUPNO",
+          outsideColor: "ANTRAZIT",
+          insideColor: "RAL9006"
+        }
+      };
+
+      return normalizeConfig({ ...previous, family, ...presets[family] });
+    });
   }
 
   function numberUpdate(key: NumericConfigKey, value: string) {
@@ -1658,11 +2148,6 @@ export function ProductionRenderer({
     setRenderZoom((previous) => Math.round(clampNumber(previous + delta, 55, 180)));
   }
 
-  function handleRenderWheel(event: WheelEvent<HTMLDivElement>) {
-    event.preventDefault();
-    updateRenderZoom(event.deltaY > 0 ? -7 : 7);
-  }
-
   function saveRenderedElement() {
     if (!isGeometryValid) {
       return;
@@ -1702,6 +2187,10 @@ export function ProductionRenderer({
     event.target.value = "";
   }
 
+  function openRoomPhotoPicker() {
+    roomPhotoInputRef.current?.click();
+  }
+
   function setPlacementFromPointer(event: ReactPointerEvent<HTMLDivElement>) {
     const bounds = placementRef.current?.getBoundingClientRect();
     if (!bounds || !selectedElement || !roomPhoto) {
@@ -1722,6 +2211,9 @@ export function ProductionRenderer({
   }
 
   function handlePlacementPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!roomPhoto || !selectedElement) {
+      return;
+    }
     setIsDraggingPlacement(true);
     event.currentTarget.setPointerCapture(event.pointerId);
     setPlacementFromPointer(event);
@@ -1820,6 +2312,16 @@ export function ProductionRenderer({
     );
   }
 
+  const isJoinery = config.family === "joinery";
+  const isKitchen = config.family === "furniture";
+  const isFence = config.family === "fence";
+  const materialTitle = isJoinery
+    ? t.joineryMaterials
+    : isKitchen
+      ? t.kitchenMaterials
+      : isFence
+        ? t.fenceMaterials
+        : t.furnitureMaterials;
   const profileYield = Math.round(
     clampNumber(
       (calculations.profileMeters / Math.max(1, (calculations.bars * config.stockProfileLength) / 1000)) * 100,
@@ -1827,11 +2329,39 @@ export function ProductionRenderer({
       100
     )
   );
-  const clearOpening = `${calculations.glassWidth.toFixed(0)} x ${calculations.glassHeight.toFixed(0)} mm`;
   const readyPieces = Math.min(
     config.quantity,
-    Math.floor(stockSignals.profiles / Math.max(1, calculations.profileMeters / config.quantity))
+    isJoinery || isFence
+      ? Math.floor(stockSignals.profiles / Math.max(1, calculations.profileMeters / config.quantity))
+      : Math.floor(stockSignals.panels / Math.max(1, calculations.boardArea / config.quantity))
   );
+  const doorSystemLabel: Record<DoorSystem, string> = {
+    none: t.noDoors,
+    hinged: t.hingedDoors,
+    sliding: t.slidingDoors
+  };
+  const handleTypeLabel: Record<HandleType, string> = {
+    bar: t.barHandle,
+    knob: t.knobHandle,
+    edge: t.edgeHandle,
+    recessed: t.recessedHandle,
+    "sliding-pull": t.slidingPullHandle
+  };
+  const moduleCountLabel = isJoinery ? t.panes : isFence ? t.fenceSections : t.modules;
+  const visibleModuleCount = isFence ? config.verticalDivisions : calculations.panes;
+  const productionMetric = isJoinery || isFence
+    ? `${calculations.profileMeters.toFixed(1)} m`
+    : `${calculations.boardArea.toFixed(2)} m2`;
+  const widthLabel = isFence ? t.fenceLength : t.width;
+  const dimensionThicknessLabel = isJoinery ? t.frame : isFence ? t.fenceProfile : t.boardThickness;
+  const divisionTitle = isJoinery ? t.divisions : isFence ? t.fenceLayout : t.modules;
+  const verticalDivisionLabel = isJoinery ? t.vDivisions : isFence ? t.fenceSections : t.verticalModules;
+  const horizontalDivisionLabel = isJoinery ? t.hDivisions : isFence ? t.fenceRails : t.shelfRows;
+  const materialFitOk = isJoinery ? calculations.glassFits : isFence ? stockSignals.profiles >= calculations.profileMeters : calculations.panelFits;
+  const materialReference = isJoinery ? config.series : isFence ? config.profileStatus : config.panelStatus;
+  const stockTextureTerms = isJoinery || isFence
+    ? ["profil", "profile"]
+    : ["panel", "ploca", "ploce", "furniture", "wood", "drvo", "front"];
 
   return (
     <section className="render-production">
@@ -1843,13 +2373,19 @@ export function ProductionRenderer({
         </div>
         <div className="render-badges">
           <span><Ruler size={15} /> {config.width} x {config.height} mm</span>
-          <span><Layers size={15} /> {calculations.panes} {t.panes}</span>
-          <span><Factory size={15} /> {calculations.profileMeters.toFixed(1)} m</span>
+          <span><Layers size={15} /> {visibleModuleCount} {moduleCountLabel}</span>
+          <span><Factory size={15} /> {productionMetric}</span>
+          {isKitchen ? (
+            <span>
+              <DoorOpen size={15} />
+              {doorSystemLabel[config.doorSystem]} - {config.doorWidth} x {config.doorHeight} mm - {handleTypeLabel[config.handleType]}
+            </span>
+          ) : null}
         </div>
       </div>
 
       <div className="render-workbench">
-        <div className="render-stage" aria-label="3D production render" onWheel={handleRenderWheel}>
+        <div className="render-stage" aria-label="3D production render" ref={renderStageRef}>
           <ProductionThreeScene
             calculations={calculations}
             config={config}
@@ -1863,21 +2399,7 @@ export function ProductionRenderer({
           </div>
           <div className="render-hud render-hud-quality">
             <span>{t.studioQuality}</span>
-            <strong>{config.series}</strong>
-          </div>
-          <div className="render-stage-metrics">
-            <span>
-              <small>{t.profileDepth}</small>
-              <strong>{config.frameWidth} mm</strong>
-            </span>
-            <span>
-              <small>{t.clearOpening}</small>
-              <strong>{clearOpening}</strong>
-            </span>
-            <span>
-              <small>{t.stockYield}</small>
-              <strong>{profileYield}%</strong>
-            </span>
+            <strong>{materialReference}</strong>
           </div>
           <div className="render-material-strip">
             <span
@@ -1896,14 +2418,20 @@ export function ProductionRenderer({
                   : { backgroundColor: productColor(config.insideColor, productColor(config.outsideColor)) }
               }
             />
-            <span className={calculations.glassFits ? "ok" : "risk"} />
+            <span className={materialFitOk ? "ok" : "risk"} />
             <strong>{t.materialStack}</strong>
           </div>
           <div className="render-cut-map" aria-label={t.cncPath}>
             <div>
               <span style={{ width: `${profileYield}%` }} />
             </div>
-            <small>{t.cncPath}: {calculations.bars} {t.bars} / {calculations.profileWaste.toFixed(2)} m {t.waste}</small>
+            <small>
+              {isJoinery
+                ? `${t.cncPath}: ${calculations.bars} ${t.bars} / ${calculations.profileWaste.toFixed(2)} m ${t.waste}`
+                : isFence
+                  ? `${t.cut}: ${calculations.bars} ${t.bars} / ${calculations.profileWaste.toFixed(2)} m ${t.waste}`
+                : `${t.cut}: ${calculations.boardArea.toFixed(2)} m2 / ${config.verticalDivisions} x ${config.horizontalDivisions} ${t.modules}`}
+            </small>
           </div>
           <div className="render-ready-chip">
             <Factory size={15} />
@@ -1929,11 +2457,11 @@ export function ProductionRenderer({
               <strong>{t.family}</strong>
             </div>
             <div className="segmented-control">
-              {(["joinery", "furniture", "universal"] as RenderFamily[]).map((family) => (
+              {(["joinery", "furniture", "universal", "fence"] as RenderFamily[]).map((family) => (
                 <button
                   className={config.family === family ? "active" : ""}
                   key={family}
-                  onClick={() => update("family", family)}
+                  onClick={() => applyFamilyPreset(family)}
                   type="button"
                 >
                   {t[family]}
@@ -1949,7 +2477,7 @@ export function ProductionRenderer({
             </div>
             <div className="control-grid">
               <label>
-                <span>{t.width} mm</span>
+                <span>{widthLabel} mm</span>
                 <input {...numericInputProps("width")} />
               </label>
               <label>
@@ -1961,7 +2489,7 @@ export function ProductionRenderer({
                 <input {...numericInputProps("depth")} />
               </label>
               <label>
-                <span>{t.frame} mm</span>
+                <span>{dimensionThicknessLabel} mm</span>
                 <input {...numericInputProps("frameWidth", maxFrameWidth(config))} />
               </label>
             </div>
@@ -1977,27 +2505,29 @@ export function ProductionRenderer({
           <div className="control-section">
             <div className="control-title">
               <SlidersHorizontal size={17} />
-              <strong>{t.divisions}</strong>
+              <strong>{divisionTitle}</strong>
             </div>
             <div className="control-grid">
               <label>
-                <span>{t.vDivisions}</span>
+                <span>{verticalDivisionLabel}</span>
                 <input {...numericInputProps("verticalDivisions")} />
               </label>
               <label>
-                <span>{t.hDivisions}</span>
+                <span>{horizontalDivisionLabel}</span>
                 <input {...numericInputProps("horizontalDivisions")} />
               </label>
-              <label>
-                <span>{t.opening}</span>
-                <select value={config.openingMode} onChange={(event) => update("openingMode", event.target.value as RenderConfig["openingMode"])}>
-                  <option value="fixed">{t.fixed}</option>
-                  <option value="tilt">{t.tilt}</option>
-                  <option value="turn">{t.turn}</option>
-                  <option value="tilt-turn">{t.tiltTurn}</option>
-                  <option value="sliding">{t.sliding}</option>
-                </select>
-              </label>
+              {isJoinery ? (
+                <label>
+                  <span>{t.opening}</span>
+                  <select value={config.openingMode} onChange={(event) => update("openingMode", event.target.value as RenderConfig["openingMode"])}>
+                    <option value="fixed">{t.fixed}</option>
+                    <option value="tilt">{t.tilt}</option>
+                    <option value="turn">{t.turn}</option>
+                    <option value="tilt-turn">{t.tiltTurn}</option>
+                    <option value="sliding">{t.sliding}</option>
+                  </select>
+                </label>
+              ) : null}
               <label>
                 <span>{t.qty}</span>
                 <input {...numericInputProps("quantity")} />
@@ -2005,44 +2535,97 @@ export function ProductionRenderer({
             </div>
           </div>
 
+          {isKitchen ? (
+            <div className="control-section">
+              <div className="control-title">
+                <DoorOpen size={17} />
+                <strong>{t.doorHardware}</strong>
+              </div>
+              <div className="control-grid">
+                <label>
+                  <span>{t.doorSystem}</span>
+                  <select value={config.doorSystem} onChange={(event) => update("doorSystem", event.target.value as DoorSystem)}>
+                    <option value="none">{t.noDoors}</option>
+                    <option value="hinged">{t.hingedDoors}</option>
+                    <option value="sliding">{t.slidingDoors}</option>
+                  </select>
+                </label>
+                <label>
+                  <span>{t.handleType}</span>
+                  <select value={config.handleType} onChange={(event) => update("handleType", event.target.value as HandleType)} disabled={config.doorSystem === "none"}>
+                    <option value="bar">{t.barHandle}</option>
+                    <option value="knob">{t.knobHandle}</option>
+                    <option value="edge">{t.edgeHandle}</option>
+                    <option value="recessed">{t.recessedHandle}</option>
+                    <option value="sliding-pull">{t.slidingPullHandle}</option>
+                  </select>
+                </label>
+                <label>
+                  <span>{t.doorWidth} mm</span>
+                  <input {...numericInputProps("doorWidth", maxDoorWidth(config))} disabled={config.doorSystem === "none"} />
+                </label>
+                <label>
+                  <span>{t.doorHeight} mm</span>
+                  <input {...numericInputProps("doorHeight", maxDoorHeight(config))} disabled={config.doorSystem === "none"} />
+                </label>
+              </div>
+            </div>
+          ) : null}
+
           <div className="control-section">
             <div className="control-title">
               <Layers size={17} />
-              <strong>{t.profile}</strong>
+              <strong>{materialTitle}</strong>
             </div>
             <div className="control-grid">
-              <label>
-                <span>{t.series}</span>
-                <select value={config.series} onChange={(event) => update("series", event.target.value)}>
-                  {legacyCatalog.productSeries.map((series) => (
-                    <option key={series} value={series}>{series}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span>{t.profile}</span>
-                <select value={config.profileStatus} onChange={(event) => update("profileStatus", event.target.value)}>
-                  {legacyCatalog.materialStatuses.map((status) => (
-                    <option key={status} value={status}>{status}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span>{t.glass}</span>
-                <select value={config.glassStatus} onChange={(event) => update("glassStatus", event.target.value)}>
-                  {legacyCatalog.glassStatuses.map((status) => (
-                    <option key={status} value={status}>{status}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span>{t.panel}</span>
-                <select value={config.panelStatus} onChange={(event) => update("panelStatus", event.target.value)}>
-                  {legacyCatalog.panelStatuses.map((status) => (
-                    <option key={status} value={status}>{status}</option>
-                  ))}
-                </select>
-              </label>
+              {isJoinery ? (
+                <>
+                  <label>
+                    <span>{t.series}</span>
+                    <select value={config.series} onChange={(event) => update("series", event.target.value)}>
+                      {legacyCatalog.productSeries.map((series) => (
+                        <option key={series} value={series}>{series}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span>{t.profile}</span>
+                    <select value={config.profileStatus} onChange={(event) => update("profileStatus", event.target.value)}>
+                      {legacyCatalog.materialStatuses.map((status) => (
+                        <option key={status} value={status}>{status}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span>{t.glass}</span>
+                    <select value={config.glassStatus} onChange={(event) => update("glassStatus", event.target.value)}>
+                      {legacyCatalog.glassStatuses.map((status) => (
+                        <option key={status} value={status}>{status}</option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              ) : null}
+              {isFence ? (
+                <label>
+                  <span>{t.profile}</span>
+                  <select value={config.profileStatus} onChange={(event) => update("profileStatus", event.target.value)}>
+                    {legacyCatalog.materialStatuses.map((status) => (
+                      <option key={status} value={status}>{status}</option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              {!isFence ? (
+                <label>
+                  <span>{t.panel}</span>
+                  <select value={config.panelStatus} onChange={(event) => update("panelStatus", event.target.value)}>
+                    {legacyCatalog.panelStatuses.map((status) => (
+                      <option key={status} value={status}>{status}</option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
               <label>
                 <span>{t.inside}</span>
                 <select value={config.insideColor} onChange={(event) => update("insideColor", event.target.value)}>
@@ -2072,20 +2655,20 @@ export function ProductionRenderer({
                       "outsideTextureId",
                       t.outsideTexture,
                       selectedOutsideTexture,
-                      ["profil", "profile"]
+                      stockTextureTerms
                     )}
                     {renderTexturePicker(
                       "insideTextureId",
                       t.insideTexture,
                       selectedInsideTexture,
-                      ["profil", "profile"]
+                      stockTextureTerms
                     )}
-                    {renderTexturePicker(
+                    {!isFence ? renderTexturePicker(
                       "panelTextureId",
                       t.panelTexture,
                       selectedPanelTexture,
-                      ["panel", "ploca", "ploce", "furniture"]
-                    )}
+                      ["panel", "ploca", "ploce", "furniture", "wood", "drvo", "front"]
+                    ) : null}
                   </>
                 ) : null}
               </div>
@@ -2098,26 +2681,38 @@ export function ProductionRenderer({
               <strong>{t.stock}</strong>
             </div>
             <div className="control-grid">
-              <label>
-                <span>{t.profile} mm</span>
-                <input {...numericInputProps("stockProfileLength")} />
-              </label>
-              <label>
-                <span>{t.glass} W</span>
-                <input {...numericInputProps("stockGlassWidth")} />
-              </label>
-              <label>
-                <span>{t.glass} H</span>
-                <input {...numericInputProps("stockGlassHeight")} />
-              </label>
-              <label>
-                <span>{t.panel} W</span>
-                <input {...numericInputProps("stockPanelWidth")} />
-              </label>
-              <label>
-                <span>{t.panel} H</span>
-                <input {...numericInputProps("stockPanelHeight")} />
-              </label>
+              {isJoinery || isFence ? (
+                <>
+                  <label>
+                    <span>{t.profileFormat} mm</span>
+                    <input {...numericInputProps("stockProfileLength")} />
+                  </label>
+                  {isJoinery ? (
+                    <>
+                      <label>
+                        <span>{t.glassFormat} W</span>
+                        <input {...numericInputProps("stockGlassWidth")} />
+                      </label>
+                      <label>
+                        <span>{t.glassFormat} H</span>
+                        <input {...numericInputProps("stockGlassHeight")} />
+                      </label>
+                    </>
+                  ) : null}
+                </>
+              ) : null}
+              {!isFence ? (
+                <>
+                  <label>
+                    <span>{isJoinery ? t.panel : t.boardFormat} W</span>
+                    <input {...numericInputProps("stockPanelWidth")} />
+                  </label>
+                  <label>
+                    <span>{isJoinery ? t.panel : t.boardFormat} H</span>
+                    <input {...numericInputProps("stockPanelHeight")} />
+                  </label>
+                </>
+              ) : null}
             </div>
           </div>
 
@@ -2188,14 +2783,22 @@ export function ProductionRenderer({
             onPointerUp={handlePlacementPointerUp}
             ref={placementRef}
           >
+            <input
+              accept="image/*"
+              capture="environment"
+              className="room-photo-input"
+              onChange={handleRoomPhoto}
+              ref={roomPhotoInputRef}
+              type="file"
+            />
             {roomPhoto ? (
               <img alt={t.placementStudio} className="room-photo" src={roomPhoto} />
             ) : (
-              <div className="room-photo-empty">
+              <button className="room-photo-empty" onClick={openRoomPhotoPicker} type="button">
                 <Camera size={28} />
                 <strong>{t.uploadSpacePhoto}</strong>
                 <span>{t.roomPhotoHint}</span>
-              </div>
+              </button>
             )}
             {savedElements.map((element) => (
               <img
@@ -2266,27 +2869,66 @@ export function ProductionRenderer({
         <article>
           <strong>{t.bom}</strong>
           <ul>
-            <li>{t.profile}: {calculations.profileMeters.toFixed(2)} m / {calculations.bars} {t.bars}</li>
-            <li>{t.glass}: {calculations.glassArea.toFixed(2)} m2 ({calculations.panes} {t.pcs})</li>
-            <li>{t.gasket}: {calculations.gasket.toFixed(1)} m</li>
-            <li>{t.hardware}: {calculations.hinges} {t.hinges}, {calculations.screws} {t.screws}</li>
-            {config.family === "furniture" ? <li>{t.boards}: {calculations.boardArea.toFixed(2)} m2</li> : null}
+            {isJoinery ? (
+              <>
+                <li>{t.profile}: {calculations.profileMeters.toFixed(2)} m / {calculations.bars} {t.bars}</li>
+                <li>{t.glass}: {calculations.glassArea.toFixed(2)} m2 ({calculations.panes} {t.pcs})</li>
+                <li>{t.gasket}: {calculations.gasket.toFixed(1)} m</li>
+                <li>{t.hardware}: {calculations.hinges} {t.hinges}, {calculations.screws} {t.screws}</li>
+              </>
+            ) : isFence ? (
+              <>
+                <li>{t.profile}: {calculations.profileMeters.toFixed(2)} m / {calculations.bars} {t.bars}</li>
+                <li>{t.fenceSections}: {config.verticalDivisions}</li>
+                <li>{t.fenceRails}: {config.horizontalDivisions}</li>
+                <li>{t.hardware}: {calculations.screws} {t.screws}</li>
+              </>
+            ) : (
+              <>
+                <li>{t.boards}: {calculations.boardArea.toFixed(2)} m2</li>
+                <li>{t.modules}: {config.verticalDivisions} x {config.horizontalDivisions}</li>
+                {isKitchen && config.doorSystem !== "none" ? (
+                  <li>{t.doorHardware}: {doorSystemLabel[config.doorSystem]}, {config.doorWidth} x {config.doorHeight} mm, {handleTypeLabel[config.handleType]}</li>
+                ) : null}
+                <li>{t.hardware}: {calculations.hinges} {t.hinges}, {calculations.screws} {t.screws}</li>
+              </>
+            )}
           </ul>
         </article>
         <article>
           <strong>{t.cut}</strong>
           <ul>
-            <li>{t.waste}: {calculations.profileWaste.toFixed(2)} m {t.profile}</li>
-            <li>{t.fit}: {calculations.glassWidth.toFixed(0)} x {calculations.glassHeight.toFixed(0)} mm {t.glass}</li>
-            <li>{t.panel}: {calculations.panelFits ? t.ok : t.risk}</li>
+            {isJoinery ? (
+              <>
+                <li>{t.waste}: {calculations.profileWaste.toFixed(2)} m {t.profile}</li>
+                <li>{t.fit}: {calculations.glassWidth.toFixed(0)} x {calculations.glassHeight.toFixed(0)} mm {t.glass}</li>
+                <li>{t.panel}: {calculations.panelFits ? t.ok : t.risk}</li>
+              </>
+            ) : isFence ? (
+              <>
+                <li>{t.waste}: {calculations.profileWaste.toFixed(2)} m {t.profile}</li>
+                <li>{t.fit}: {(config.width / Math.max(1, config.verticalDivisions)).toFixed(0)} mm {t.fenceSections}</li>
+                <li>{t.profile}: {stockSignals.profiles >= calculations.profileMeters ? t.ok : t.risk}</li>
+              </>
+            ) : (
+              <>
+                <li>{t.boards}: {calculations.boardArea.toFixed(2)} m2</li>
+                <li>{t.fit}: {(config.width / Math.max(1, config.verticalDivisions)).toFixed(0)} x {(config.height / Math.max(1, config.horizontalDivisions)).toFixed(0)} mm</li>
+                <li>{t.panel}: {calculations.panelFits ? t.ok : t.risk}</li>
+              </>
+            )}
           </ul>
         </article>
         <article>
           <strong>{t.warehouseFit}</strong>
           <div className="fit-grid">
-            <span className={stockSignals.profiles >= calculations.profileMeters ? "ok" : "risk"}><Check size={14} /> {t.profile}: {stockSignals.profiles.toFixed(0)} m</span>
-            <span className={calculations.glassFits ? "ok" : "risk"}><Check size={14} /> {t.glass}: {calculations.glassFits ? t.ok : t.risk}</span>
-            <span className={stockSignals.panels > 0 ? "ok" : "risk"}><Check size={14} /> {t.panel}: {stockSignals.panels.toFixed(0)} pcs</span>
+            {isJoinery || isFence ? (
+              <>
+                <span className={stockSignals.profiles >= calculations.profileMeters ? "ok" : "risk"}><Check size={14} /> {t.profile}: {stockSignals.profiles.toFixed(0)} m</span>
+                {isJoinery ? <span className={calculations.glassFits ? "ok" : "risk"}><Check size={14} /> {t.glass}: {calculations.glassFits ? t.ok : t.risk}</span> : null}
+              </>
+            ) : null}
+            {!isFence ? <span className={stockSignals.panels > 0 ? "ok" : "risk"}><Check size={14} /> {t.panel}: {stockSignals.panels.toFixed(0)} pcs</span> : null}
           </div>
         </article>
         <article className="render-action-card">
@@ -2304,7 +2946,17 @@ export function ProductionRenderer({
                 colorInt: config.insideColor,
                 colorExt: config.outsideColor,
                 quantity: config.quantity,
-                note: `${t.studio}: ${config.family}, ${config.width}x${config.height}x${config.depth}mm, ${calculations.profileMeters.toFixed(2)}m profile, ${calculations.glassArea.toFixed(2)}m2 glass.`
+                note: `${t.studio}: ${t[config.family]}, ${config.width}x${config.height}x${config.depth}mm${
+                  isKitchen
+                    ? `, ${doorSystemLabel[config.doorSystem]}, ${config.doorWidth}x${config.doorHeight}mm, ${handleTypeLabel[config.handleType]}`
+                    : ""
+                }, ${
+                  isJoinery
+                    ? `${calculations.profileMeters.toFixed(2)}m ${t.profile}, ${calculations.glassArea.toFixed(2)}m2 ${t.glass}.`
+                    : isFence
+                      ? `${calculations.profileMeters.toFixed(2)}m ${t.profile}, ${config.verticalDivisions} ${t.fenceSections}, ${config.horizontalDivisions} ${t.fenceRails}.`
+                    : `${calculations.boardArea.toFixed(2)}m2 ${t.boards}, ${config.verticalDivisions}x${config.horizontalDivisions} ${t.modules}.`
+                }`
               })
             }
             type="button"

@@ -20,6 +20,7 @@ import {
   Gauge,
   HardHat,
   Home,
+  LogOut,
   Menu,
   Monitor,
   Package,
@@ -39,7 +40,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import type { ChangeEvent, FormEvent, ReactNode, SyntheticEvent } from "react";
+import type { ChangeEvent, FormEvent, ReactNode } from "react";
 import { ProductionRenderer } from "../components/ProductionRenderer";
 import { legacyCatalog } from "./_domain/legacyCatalog";
 import {
@@ -241,11 +242,11 @@ const documentLabels: Record<DocumentKey, string> = {
   specMaterijala: "Spec. materijala",
   ponudaUgovor: "Ponuda/Ugovor",
   originalneMjere: "Originalne mjere",
-  profil: "Narudzba profila",
-  ojacanja: "Narudzba ojacanja",
-  okovi: "Narudzba okova",
-  staklo: "Narudzba stakla",
-  panel: "Narudzba panela",
+  profil: "Narudžba profila",
+  ojacanja: "Narudžba ojačanja",
+  okovi: "Narudžba okova",
+  staklo: "Narudžba stakla",
+  panel: "Narudžba panela",
   transport: "Transport",
   izvoz: "Izvoz",
   proforma: "Proforma",
@@ -260,9 +261,9 @@ const localizedDocumentLabels: Record<Language, Record<DocumentKey, string>> = {
     reznaLista: "Zuschnittliste",
     specMaterijala: "Materialspezifikation",
     ponudaUgovor: "Angebot/Vertrag",
-    originalneMjere: "Originalmasse",
+    originalneMjere: "Originalmaße",
     profil: "Profilbestellung",
-    ojacanja: "Verstaerkungsbestellung",
+    ojacanja: "Verstärkungsbestellung",
     okovi: "Beschlagbestellung",
     staklo: "Glasbestellung",
     panel: "Paneelbestellung",
@@ -301,7 +302,7 @@ const localizedDocumentLabels: Record<Language, Record<DocumentKey, string>> = {
     staklo: "Pedido vidrio",
     panel: "Pedido paneles",
     transport: "Transporte",
-    izvoz: "Exportacion",
+    izvoz: "Exportación",
     proforma: "Proforma",
     transportSlika1: "Foto transporte 1",
     transportSlika2: "Foto transporte 2"
@@ -354,7 +355,7 @@ const currency = new Intl.NumberFormat("en-US", {
 const dateLabels: Record<Language, { months: string[]; weekdays: string[] }> = {
   bhs: {
     months: ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt", "nov", "dec"],
-    weekdays: ["ned", "pon", "uto", "sri", "cet", "pet", "sub"]
+    weekdays: ["ned", "pon", "uto", "sri", "čet", "pet", "sub"]
   },
   de: {
     months: ["Jan", "Feb", "Mar", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"],
@@ -366,7 +367,7 @@ const dateLabels: Record<Language, { months: string[]; weekdays: string[] }> = {
   },
   es: {
     months: ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"],
-    weekdays: ["dom", "lun", "mar", "mie", "jue", "vie", "sab"]
+    weekdays: ["dom", "lun", "mar", "mié", "jue", "vie", "sab"]
   },
   en: {
     months: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
@@ -559,13 +560,6 @@ function classNames(...parts: Array<string | false | undefined>) {
   return parts.filter(Boolean).join(" ");
 }
 
-function handleLogoFallback(event: SyntheticEvent<HTMLImageElement>) {
-  const image = event.currentTarget;
-  if (!image.src.endsWith("/productionpilot-logo.svg")) {
-    image.src = "/productionpilot-logo.svg";
-  }
-}
-
 function IconButton({
   title,
   children,
@@ -586,6 +580,56 @@ function IconButton({
     >
       {children}
     </button>
+  );
+}
+
+function BrandLogo({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-label="ProductionPilot"
+      className={className}
+      focusable="false"
+      role="img"
+      viewBox="0 0 2169 327"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <rect fill="#101820" height="327" width="2169" />
+      <g transform="translate(74 66)">
+        <path d="M0 92h265" stroke="#f97316" strokeLinecap="round" strokeWidth="28" />
+        <path
+          d="M172 16l104 76-104 76"
+          fill="none"
+          stroke="#f97316"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="28"
+        />
+        <path d="M312 35l78 46V28l72 48V24l83 57v111H312z" fill="#ffffff" />
+        <rect fill="#101820" height="32" width="28" x="346" y="124" />
+        <rect fill="#101820" height="32" width="28" x="404" y="124" />
+        <rect fill="#101820" height="32" width="28" x="462" y="124" />
+      </g>
+      <text
+        fill="#ffffff"
+        fontFamily="Inter, Segoe UI, Arial, sans-serif"
+        fontSize="126"
+        fontWeight="800"
+        x="690"
+        y="204"
+      >
+        Production
+      </text>
+      <text
+        fill="#f97316"
+        fontFamily="Inter, Segoe UI, Arial, sans-serif"
+        fontSize="126"
+        fontWeight="800"
+        x="1332"
+        y="204"
+      >
+        Pilot
+      </text>
+    </svg>
   );
 }
 
@@ -1285,6 +1329,10 @@ export default function ProductionPilot() {
     setNotice("Worker station updated.");
   }
 
+  function handleSignOut() {
+    setNotice(`${currentUser.name} - ${t("signOut")}.`);
+  }
+
   function exportData() {
     const payload: PersistedState = { orders, stock, ledger, workers };
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
@@ -1329,12 +1377,7 @@ export default function ProductionPilot() {
     <main className="app-shell">
       <aside className="sidebar" aria-label="ProductionPilot navigation">
         <div className="brand-block">
-          <img
-            alt="ProductionPilot"
-            className="brand-logo"
-            onError={handleLogoFallback}
-            src="/productionpilot-logo.svg"
-          />
+          <BrandLogo className="brand-logo" />
           <span>Production Management Systems</span>
         </div>
         <nav className="side-nav">
@@ -1354,9 +1397,18 @@ export default function ProductionPilot() {
           })}
         </nav>
         <div className="sidebar-status">
-          <span>{t("signedIn")}</span>
-          <strong>{currentUser.name}</strong>
-          <small>{currentUser.role}</small>
+          <div className="sidebar-user-row">
+            <div>
+              <span>{t("signedIn")}</span>
+              <strong>{currentUser.name}</strong>
+              <small>{currentUser.role}</small>
+            </div>
+            <ShieldCheck size={18} />
+          </div>
+          <button className="sidebar-logout" onClick={handleSignOut} type="button">
+            <LogOut size={15} />
+            <span>{t("signOut")}</span>
+          </button>
         </div>
       </aside>
 
@@ -1370,12 +1422,7 @@ export default function ProductionPilot() {
             >
               <Menu size={18} />
             </IconButton>
-            <img
-              alt="ProductionPilot"
-              className="topbar-logo"
-              onError={handleLogoFallback}
-              src="/productionpilot-logo.svg"
-            />
+            <BrandLogo className="topbar-logo" />
             <div className="topbar-title-copy">
               <p className="topbar-date">{formattedDate}</p>
               <h2>{viewTitle}</h2>
@@ -1962,41 +2009,48 @@ export default function ProductionPilot() {
       tone: "prep" | "build" | "pack" | "ship" | "done";
     }> = [
       {
-        label: "Priprema",
-        subtitle: "Nalozi spremni za start",
+        label: t("lanePrep"),
+        subtitle: t("lanePrepSubtitle"),
         states: ["U PRIPREMI"],
         icon: ClipboardList,
         tone: "prep"
       },
       {
-        label: "Izrada",
-        subtitle: "Rezanje, obrada, varenje, okov",
+        label: t("laneBuild"),
+        subtitle: t("laneBuildSubtitle"),
         states: ["U PROIZVODNJI", "SREZANO", "OBRADJENO", "ZAVARENO", "OKOVANO"],
         icon: Factory,
         tone: "build"
       },
       {
-        label: "Finalizacija",
-        subtitle: "Staklo, paneli i pakovanje",
+        label: t("laneFinish"),
+        subtitle: t("laneFinishSubtitle"),
         states: ["POSTAKLANO", "SPAKOVANO"],
         icon: Package,
         tone: "pack"
       },
       {
-        label: "Logistika",
-        subtitle: "Utovar i isporuka",
+        label: t("laneLogistics"),
+        subtitle: t("laneLogisticsSubtitle"),
         states: ["POSLANO"],
         icon: Truck,
         tone: "ship"
       },
       {
-        label: "Zatvoreno",
-        subtitle: "Isporuceno i arhivirano",
+        label: t("laneClosed"),
+        subtitle: t("laneClosedSubtitle"),
         states: ["ISPORUCENO"],
         icon: ShieldCheck,
         tone: "done"
       }
     ];
+    const monitorGroupLabels: Record<string, string> = {
+      Prep: t("lanePrep"),
+      Build: t("laneBuild"),
+      Pack: t("laneFinish"),
+      Ship: t("laneLogistics"),
+      Done: t("laneClosed")
+    };
     const activeUnits = Math.max(0, stats.totalQty - stats.groupQty.Done);
     const activeWorkers = workers.filter((worker) => worker.status === "Active").length;
     const averageEfficiency = workers.length
@@ -2019,12 +2073,9 @@ export default function ProductionPilot() {
       <section className="monitor-view">
         <div className="monitor-header monitor-hero">
           <div>
-            <p>Production monitor</p>
-            <h3>Live factory command board</h3>
-            <span>
-              Real-time flow, operator load, delivery pressure and document readiness
-              for the whole shop floor.
-            </span>
+            <p>{t("monitorHeroKicker")}</p>
+            <h3>{t("monitorHeroTitle")}</h3>
+            <span>{t("monitorHeroSubtitle")}</span>
           </div>
           <div className="monitor-clock">
             <Clock3 size={20} />
@@ -2036,33 +2087,35 @@ export default function ProductionPilot() {
         <div className="monitor-board-grid">
           <article className="monitor-kpi accent-green">
             <Factory size={22} />
-            <span>Aktivno u toku</span>
+            <span>{t("activeInFlow")}</span>
             <strong>{activeUnits}</strong>
-            <small>{orders.filter((order) => order.state !== "ISPORUCENO").length} otvorenih naloga</small>
+            <small>{orders.filter((order) => order.state !== "ISPORUCENO").length} {t("openOrders")}</small>
           </article>
           <article className="monitor-kpi accent-amber">
             <AlertTriangle size={22} />
-            <span>Delivery pressure</span>
+            <span>{t("deliveryPressureLabel")}</span>
             <strong>{stats.dueSoon}</strong>
-            <small>{nextDeparture ? `${nextDeparture.id} za ${daysUntil(nextDeparture.deliveryDate)}d` : "Bez pritiska"}</small>
+            <small>{nextDeparture ? `${nextDeparture.id} ${t("dueIn")} ${daysUntil(nextDeparture.deliveryDate)}d` : t("noPressure")}</small>
           </article>
           <article className="monitor-kpi accent-blue">
             <FileText size={22} />
-            <span>Dokumentacija</span>
+            <span>{t("documentation")}</span>
             <strong>{stats.avgDocs}%</strong>
-            <small>Prosjecna spremnost paketa</small>
+            <small>{t("averagePackReadiness")}</small>
           </article>
           <article className="monitor-kpi accent-violet">
             <HardHat size={22} />
-            <span>Shop floor</span>
+            <span>{t("shopFloor")}</span>
             <strong>{averageEfficiency}%</strong>
-            <small>{activeWorkers}/{workers.length} aktivnih radnika</small>
+            <small>{activeWorkers}/{workers.length} {t("activeWorkersLabel")}</small>
           </article>
           <article className="monitor-kpi accent-red">
             <Timer size={22} />
-            <span>Bottleneck</span>
+            <span>{t("bottleneckLabel")}</span>
             <strong>{bottleneck?.[1] ?? 0}</strong>
-            <small>{bottleneck?.[0] ?? "Clear"} komada u fokusu</small>
+            <small>
+              {bottleneck ? `${monitorGroupLabels[bottleneck[0]] ?? bottleneck[0]} ${t("piecesInFocus")}` : t("clearFlow")}
+            </small>
           </article>
         </div>
 
@@ -2112,7 +2165,7 @@ export default function ProductionPilot() {
                       );
                     })
                   ) : (
-                    <span className="monitor-empty">Nema cekanja</span>
+                    <span className="monitor-empty">{t("noWaiting")}</span>
                   )}
                   {laneOrders.length > 4 ? (
                     <button
@@ -2123,7 +2176,7 @@ export default function ProductionPilot() {
                       }}
                       type="button"
                     >
-                      +{laneOrders.length - 4} jos u redu
+                      +{laneOrders.length - 4} {t("moreInQueue")}
                     </button>
                   ) : null}
                 </div>

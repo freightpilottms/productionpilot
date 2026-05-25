@@ -585,90 +585,12 @@ function IconButton({
 
 function BrandLogo({ className }: { className?: string }) {
   return (
-    <svg
-      aria-label="ProductionPilot"
+    <img
+      alt="ProductionPilot"
       className={className}
-      focusable="false"
-      role="img"
-      viewBox="0 0 2048 512"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <defs>
-        <linearGradient id="logoPanel" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0" stopColor="#07131d" />
-          <stop offset="0.48" stopColor="#101820" />
-          <stop offset="1" stopColor="#07111a" />
-        </linearGradient>
-        <radialGradient cx="42%" cy="44%" id="logoGlow" r="72%">
-          <stop offset="0" stopColor="#203443" stopOpacity="0.75" />
-          <stop offset="0.58" stopColor="#101820" stopOpacity="0.18" />
-          <stop offset="1" stopColor="#101820" stopOpacity="0" />
-        </radialGradient>
-        <linearGradient id="logoOrange" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0" stopColor="#ff8a1a" />
-          <stop offset="0.52" stopColor="#ff6b0b" />
-          <stop offset="1" stopColor="#e85a00" />
-        </linearGradient>
-        <linearGradient id="logoWhite" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stopColor="#ffffff" />
-          <stop offset="0.58" stopColor="#f7f8f9" />
-          <stop offset="1" stopColor="#dfe5e8" />
-        </linearGradient>
-        <filter colorInterpolationFilters="sRGB" height="140%" id="logoShadow" width="140%" x="-20%" y="-20%">
-          <feDropShadow dx="0" dy="12" floodColor="#000000" floodOpacity="0.45" stdDeviation="12" />
-        </filter>
-        <filter colorInterpolationFilters="sRGB" height="150%" id="textShadow" width="140%" x="-16%" y="-20%">
-          <feDropShadow dx="0" dy="9" floodColor="#000000" floodOpacity="0.55" stdDeviation="7" />
-        </filter>
-      </defs>
-      <rect fill="url(#logoPanel)" height="512" width="2048" />
-      <rect fill="url(#logoGlow)" height="512" width="2048" />
-      <g filter="url(#logoShadow)" transform="translate(72 122) scale(0.74)">
-        <path
-          d="M0 154c0-12 9-21 21-21h191l-42-72c-6-11 6-24 17-17l186 120c11 7 11 24 0 31L187 315c-11 7-23-6-17-17l42-72H21c-12 0-21-9-21-21s9-21 21-21h224l63-30-63-29H21c-12 0-21-9-21-21z"
-          fill="url(#logoOrange)"
-        />
-        <path
-          d="M20 181h225l51-23-51-23H20"
-          fill="none"
-          opacity="0.92"
-          stroke="#ff7a12"
-          strokeLinecap="round"
-          strokeWidth="12"
-        />
-        <path
-          d="M304 306V138h54l23-116h100v146l118-76v76l118-76v78h43v136z"
-          fill="url(#logoWhite)"
-        />
-        <path d="M304 306h456v34H304z" fill="#f6f8f9" opacity="0.92" />
-        <rect fill="#101820" height="44" rx="4" width="42" x="385" y="236" />
-        <rect fill="#101820" height="44" rx="4" width="42" x="470" y="236" />
-        <rect fill="#101820" height="44" rx="4" width="42" x="555" y="236" />
-        <path d="M304 138h54l23-116h100v146l118-76v76l118-76v78h43" fill="none" opacity="0.42" stroke="#ffffff" strokeWidth="8" />
-      </g>
-      <text
-        fill="url(#logoWhite)"
-        filter="url(#textShadow)"
-        fontFamily="Inter, Segoe UI, Arial, sans-serif"
-        fontSize="168"
-        fontWeight="900"
-        x="654"
-        y="321"
-      >
-        Production
-      </text>
-      <text
-        fill="url(#logoOrange)"
-        filter="url(#textShadow)"
-        fontFamily="Inter, Segoe UI, Arial, sans-serif"
-        fontSize="168"
-        fontWeight="900"
-        x="1561"
-        y="321"
-      >
-        Pilot
-      </text>
-    </svg>
+      draggable={false}
+      src="/productionpilot-logo.png"
+    />
   );
 }
 
@@ -1411,6 +1333,52 @@ export default function ProductionPilot() {
     if (normalized === "quality") return t("quality");
     return station;
   };
+  const renderActionControls = (placement: "desktop" | "body") => (
+    <div className={classNames("topbar-actions", placement === "body" && "body-actions")}>
+      <div className="search-box">
+        <Search size={18} />
+        <input
+          aria-label={t("search")}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={t("search")}
+          value={query}
+        />
+      </div>
+      <label className="language-switcher" title={t("language")}>
+        <select
+          aria-label={t("language")}
+          onChange={(event) => setLanguage(event.target.value as Language)}
+          value={language}
+        >
+          {languages.map((item) => (
+            <option key={item.code} value={item.code}>
+              {item.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <IconButton onClick={createNewOrder} title={t("newOrder")}>
+        <Plus size={18} />
+      </IconButton>
+      {placement === "desktop" ? (
+        <IconButton
+          className="print-action"
+          onClick={() => window.print()}
+          title={t("printView")}
+        >
+          <Printer size={18} />
+        </IconButton>
+      ) : null}
+      <span className="mobile-date-chip">{compactDate}</span>
+      <IconButton
+        className="download-action"
+        onClick={exportData}
+        title={t("exportData")}
+      >
+        <Download size={18} />
+      </IconButton>
+    </div>
+  );
 
   return (
     <main className="app-shell">
@@ -1467,48 +1435,7 @@ export default function ProductionPilot() {
               <h2>{viewTitle}</h2>
             </div>
           </div>
-          <div className="topbar-actions">
-            <div className="search-box">
-              <Search size={18} />
-              <input
-                aria-label={t("search")}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={t("search")}
-                value={query}
-              />
-            </div>
-            <label className="language-switcher" title={t("language")}>
-              <select
-                aria-label={t("language")}
-                onChange={(event) => setLanguage(event.target.value as Language)}
-                value={language}
-              >
-                {languages.map((item) => (
-                  <option key={item.code} value={item.code}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <IconButton onClick={createNewOrder} title={t("newOrder")}>
-              <Plus size={18} />
-            </IconButton>
-            <IconButton
-              className="print-action"
-              onClick={() => window.print()}
-              title={t("printView")}
-            >
-              <Printer size={18} />
-            </IconButton>
-            <span className="mobile-date-chip">{compactDate}</span>
-            <IconButton
-              className="download-action"
-              onClick={exportData}
-              title={t("exportData")}
-            >
-              <Download size={18} />
-            </IconButton>
-          </div>
+          {renderActionControls("desktop")}
         </header>
 
         <nav
@@ -1543,6 +1470,8 @@ export default function ProductionPilot() {
           <Bell size={16} />
           <span>{notice}</span>
         </div>
+
+        {renderActionControls("body")}
 
         {activeView === "dashboard" ? renderDashboard() : null}
         {activeView === "orders" ? renderOrders() : null}

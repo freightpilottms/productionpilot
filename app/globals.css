@@ -1,5 +1,5 @@
 :root {
-  --logo-bg: #101820;
+  --logo-bg: #0a131d;
   --brand-bg: var(--logo-bg);
   --brand-bg-2: var(--logo-bg);
   --brand-bg-3: var(--logo-bg);
@@ -247,18 +247,21 @@ textarea:focus {
   display: block;
   height: auto;
   max-width: 100%;
-  width: 178px;
+  object-fit: contain;
+  user-select: none;
+  width: 210px;
 }
 
 .topbar-logo {
   background: var(--logo-bg);
   background-color: var(--logo-bg);
-  border-radius: 8px;
+  border-radius: 0;
   display: none;
-  height: 40px;
+  height: 42px;
   object-fit: contain;
-  padding: 7px 10px;
-  width: 182px;
+  padding: 0;
+  user-select: none;
+  width: 220px;
 }
 
 .brand-block span,
@@ -420,6 +423,10 @@ textarea:focus {
   flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
+}
+
+.body-actions {
+  display: none;
 }
 
 .mobile-date-chip {
@@ -3038,27 +3045,40 @@ meter {
     color: #fff;
     display: grid;
     gap: 12px;
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: 1fr;
     padding: 12px;
+  }
+
+  .topbar-title {
+    justify-content: flex-start;
+    width: 100%;
   }
 
   .topbar-title-copy {
     display: none;
   }
 
-  .topbar-actions {
-    justify-content: flex-end;
+  .topbar > .topbar-actions {
+    display: none;
+  }
+
+  .body-actions {
+    align-items: center;
+    display: grid;
+    gap: 8px;
+    grid-template-columns: minmax(240px, 1fr) minmax(150px, 180px) 42px auto 42px;
+    justify-content: stretch;
     width: 100%;
   }
 
-  .topbar-actions .search-box {
-    flex: 1 1 260px;
-    min-width: 220px;
+  .body-actions .search-box {
+    min-width: 0;
+    width: 100%;
   }
 
-  .topbar-actions .language-switcher {
-    flex: 0 1 150px;
-    min-width: 136px;
+  .body-actions .language-switcher {
+    min-width: 0;
+    width: 100%;
   }
 
   .mobile-date-chip {
@@ -3077,6 +3097,13 @@ meter {
     padding: 0 10px;
     text-transform: uppercase;
     white-space: nowrap;
+  }
+
+  .body-actions .mobile-date-chip {
+    background: var(--logo-bg);
+    border-color: rgba(16, 24, 32, 0.2);
+    box-shadow: 0 8px 18px rgba(16, 24, 32, 0.08);
+    color: #fff;
   }
 
   .body-view-heading {
@@ -3109,6 +3136,10 @@ meter {
 
   .topbar-logo {
     display: block;
+    flex: 0 0 208px;
+    height: 52px;
+    padding: 4px 0;
+    width: 208px;
   }
 
   .mobile-nav-menu.open {
@@ -3188,9 +3219,9 @@ meter {
 
   .topbar-logo {
     flex: 0 0 auto;
-    height: 34px;
-    padding: 5px 8px;
-    width: 148px;
+    height: 36px;
+    padding: 0;
+    width: 162px;
   }
 
   .topbar .icon-button.mobile-menu-button {
@@ -3204,7 +3235,7 @@ meter {
     color: var(--brand-orange);
   }
 
-  .topbar-actions {
+  .body-actions {
     display: grid;
     gap: 8px;
     grid-template-columns: minmax(0, 1fr) 40px auto 40px;
@@ -3212,8 +3243,8 @@ meter {
     width: 100%;
   }
 
-  .topbar-actions .search-box,
-  .topbar-actions .language-switcher {
+  .body-actions .search-box,
+  .body-actions .language-switcher {
     min-width: 0;
   }
 

@@ -2140,9 +2140,10 @@ export default function ProductionPilot() {
                   {laneOrders.length ? (
                     laneOrders.slice(0, 4).map((order) => {
                       const progress = productionStatePriority[order.state] * 10;
+                      const compactCard = laneOrders.length > 2;
                       return (
                         <button
-                          className="monitor-order-card"
+                          className={classNames("monitor-order-card", compactCard && "compact-monitor-card")}
                           key={order.id}
                           onClick={() => selectOrder(order)}
                           type="button"
@@ -2160,7 +2161,9 @@ export default function ProductionPilot() {
                           <span className="monitor-progress" aria-hidden="true">
                             <span style={{ width: `${progress}%` }} />
                           </span>
-                          <StatusPill language={language} state={order.state} />
+                          {compactCard ? null : (
+                            <StatusPill language={language} state={order.state} />
+                          )}
                         </button>
                       );
                     })

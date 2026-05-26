@@ -23,6 +23,7 @@ import {
   LogOut,
   Menu,
   Monitor,
+  MoreHorizontal,
   Package,
   Plus,
   Printer,
@@ -345,6 +346,15 @@ const navItems: Array<{ id: View; labelKey: TranslationKey; icon: LucideIcon }> 
   { id: "finance", labelKey: "finance", icon: Wallet },
   { id: "workers", labelKey: "workers", icon: Users }
 ];
+
+const bottomNavItems: Array<{ id: View; labelKey: TranslationKey; icon: LucideIcon; center?: boolean }> = [
+  { id: "orders", labelKey: "orders", icon: ClipboardList },
+  { id: "monitor", labelKey: "monitor", icon: Monitor },
+  { id: "dashboard", labelKey: "control", icon: Home, center: true },
+  { id: "render", labelKey: "render", icon: Gauge }
+];
+
+const bottomNavPrimaryIds = new Set<View>(bottomNavItems.map((item) => item.id));
 
 const currency = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -1333,6 +1343,14 @@ export default function ProductionPilot() {
     if (normalized === "quality") return t("quality");
     return station;
   };
+  const overflowNavItems = navItems.filter((item) => !bottomNavPrimaryIds.has(item.id));
+  const isOverflowViewActive = overflowNavItems.some((item) => item.id === activeView);
+
+  function navigateToView(view: View) {
+    setActiveView(view);
+    setNavMenuOpen(false);
+  }
+
   const renderActionControls = (placement: "desktop" | "body") => (
     <div className={classNames("topbar-actions", placement === "body" && "body-actions")}>
       <div className="search-box">
@@ -1394,7 +1412,7 @@ export default function ProductionPilot() {
               <button
                 className={classNames(activeView === item.id && "active")}
                 key={item.id}
-                onClick={() => setActiveView(item.id)}
+                onClick={() => navigateToView(item.id)}
                 type="button"
               >
                 <Icon size={18} />
@@ -1442,15 +1460,14 @@ export default function ProductionPilot() {
           aria-label="Compact navigation"
           className={classNames("mobile-nav-menu", navMenuOpen && "open")}
         >
-          {navItems.map((item) => {
+          {overflowNavItems.map((item) => {
             const Icon = item.icon;
             return (
               <button
                 className={classNames(activeView === item.id && "active")}
                 key={item.id}
                 onClick={() => {
-                  setActiveView(item.id);
-                  setNavMenuOpen(false);
+                  navigateToView(item.id);
                 }}
                 type="button"
               >
@@ -1459,6 +1476,35 @@ export default function ProductionPilot() {
               </button>
             );
           })}
+        </nav>
+
+        <nav aria-label="Bottom navigation" className="bottom-tabbar">
+          {bottomNavItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                aria-current={activeView === item.id ? "page" : undefined}
+                className={classNames(activeView === item.id && "active", item.center && "center-tab")}
+                key={item.id}
+                onClick={() => navigateToView(item.id)}
+                title={t(item.labelKey)}
+                type="button"
+              >
+                <Icon size={20} />
+                <span>{t(item.labelKey)}</span>
+              </button>
+            );
+          })}
+          <button
+            aria-expanded={navMenuOpen}
+            className={classNames((navMenuOpen || isOverflowViewActive) && "active")}
+            onClick={() => setNavMenuOpen((open) => !open)}
+            title={t("moreNav")}
+            type="button"
+          >
+            <MoreHorizontal size={22} />
+            <span>{t("moreNav")}</span>
+          </button>
         </nav>
 
         <div className="body-view-heading">

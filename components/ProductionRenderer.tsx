@@ -31,7 +31,7 @@ import type { Language } from "../app/_domain/i18n";
 
 type RenderFamily = "joinery" | "furniture" | "universal" | "fence";
 type DoorSystem = "none" | "hinged" | "sliding";
-type HandleType = "bar" | "knob" | "edge" | "recessed" | "sliding-pull";
+type HandleType = "standard" | "bar" | "knob" | "edge" | "recessed" | "sliding-pull";
 
 type RenderConfig = {
   family: RenderFamily;
@@ -48,6 +48,7 @@ type RenderConfig = {
   doorHeight: number;
   revealGap: number;
   frontProjection: number;
+  sashThickness: number;
   handleLength: number;
   handleOffset: number;
   handleType: HandleType;
@@ -79,6 +80,7 @@ type NumericConfigKey =
   | "doorHeight"
   | "revealGap"
   | "frontProjection"
+  | "sashThickness"
   | "handleLength"
   | "handleOffset"
   | "stockProfileLength"
@@ -213,9 +215,11 @@ const copy = {
     doorWidth: "Širina krila",
     doorHeight: "Visina krila",
     handleType: "Tip kvake",
+    standardHandle: "Standardna kvaka",
     precisionDetails: "Precizni detalji",
     revealGap: "Zazor / fuga",
     frontProjection: "Izbacaj krila",
+    sashThickness: "Debljina krila",
     handleLength: "Duzina kvake",
     handleOffset: "Pozicija kvake",
     barHandle: "Ručka",
@@ -339,9 +343,11 @@ const copy = {
     doorWidth: "Türblattbreite",
     doorHeight: "Türblatthöhe",
     handleType: "Grifftyp",
+    standardHandle: "Standardgriff",
     precisionDetails: "Präzise Details",
     revealGap: "Fuge / Spalt",
     frontProjection: "Frontversatz",
+    sashThickness: "Fluegelstaerke",
     handleLength: "Grifflänge",
     handleOffset: "Griffposition",
     barHandle: "Stangengriff",
@@ -465,9 +471,11 @@ const copy = {
     doorWidth: "Larghezza anta",
     doorHeight: "Altezza anta",
     handleType: "Tipo maniglia",
+    standardHandle: "Maniglia standard",
     precisionDetails: "Dettagli precisi",
     revealGap: "Fuga",
     frontProjection: "Sporgenza anta",
+    sashThickness: "Spessore anta",
     handleLength: "Lunghezza maniglia",
     handleOffset: "Posizione maniglia",
     barHandle: "Maniglia lineare",
@@ -591,9 +599,11 @@ const copy = {
     doorWidth: "Ancho de hoja",
     doorHeight: "Alto de hoja",
     handleType: "Tipo de tirador",
+    standardHandle: "Manilla estandar",
     precisionDetails: "Detalles precisos",
     revealGap: "Holgura / junta",
     frontProjection: "Proyeccion de hoja",
+    sashThickness: "Espesor de hoja",
     handleLength: "Longitud tirador",
     handleOffset: "Posicion tirador",
     barHandle: "Tirador lineal",
@@ -717,9 +727,11 @@ const copy = {
     doorWidth: "Leaf width",
     doorHeight: "Leaf height",
     handleType: "Handle type",
+    standardHandle: "Standard handle",
     precisionDetails: "Precision details",
     revealGap: "Reveal / gap",
     frontProjection: "Leaf projection",
+    sashThickness: "Leaf thickness",
     handleLength: "Handle length",
     handleOffset: "Handle position",
     barHandle: "Bar handle",
@@ -838,6 +850,7 @@ const dimensionBounds: Record<NumericConfigKey, { min: number; max: number }> = 
   doorHeight: { min: 40, max: 16000 },
   revealGap: { min: 0, max: 120 },
   frontProjection: { min: 0, max: 260 },
+  sashThickness: { min: 3, max: 2500 },
   handleLength: { min: 20, max: 2200 },
   handleOffset: { min: 0, max: 1200 },
   stockProfileLength: { min: 100, max: 30000 },
@@ -878,30 +891,46 @@ function maxDoorHeight(config: Pick<RenderConfig, "height" | "frameWidth">) {
   return Math.max(40, Math.floor(config.height - config.frameWidth * 2));
 }
 
-function scaledFrameThickness(config: RenderConfig) {
-  if (config.family === "furniture" || config.family === "universal") {
-    return clampNumber(config.frameWidth / 210, 0.045, 0.34);
-  }
-  if (config.family === "fence") {
-    return clampNumber(config.frameWidth / 430, 0.06, 0.5);
-  }
-  return clampNumber(config.frameWidth / 520, 0.055, 0.54);
+function scaledModelDimensions(config: RenderConfig, targetLongest = 4.6) {
+  const largestMm = Math.max(config.width, config.height, config.depth, 1);
+  const scale = targetLongest / largestMm;
+  const visualFloor = targetLongest * 0.004;
+  const width = Math.max(config.width * scale, visualFloor);
+  const height = Math.max(config.height * scale, visualFloor);
+  const depth = Math.max(config.depth * scale, visualFloor);
+
+  return {
+    width,
+    height,
+    depth,
+    scale,
+    maxSize: Math.max(width, height, depth)
+  };
 }
 
-function scaledRevealGap(config: RenderConfig) {
-  return clampNumber(config.revealGap / 260, 0.006, 0.12);
+function scaledFrameThickness(config: RenderConfig, modelScale = scaledModelDimensions(config).scale) {
+  const smallestFace = Math.min(config.width, config.height) * modelScale;
+  return clampNumber(config.frameWidth * modelScale, 0.018, Math.max(0.024, smallestFace * 0.45));
 }
 
-function scaledFrontProjection(config: RenderConfig) {
-  return clampNumber(config.frontProjection / 260, 0.018, 0.26);
+function scaledRevealGap(config: RenderConfig, modelScale = scaledModelDimensions(config).scale) {
+  return clampNumber(config.revealGap * modelScale, 0, 0.16);
 }
 
-function scaledHandleLength(config: RenderConfig, panelHeight: number) {
-  return clampNumber(config.handleLength / 620, 0.08, Math.max(0.09, panelHeight * 0.88));
+function scaledFrontProjection(config: RenderConfig, modelScale = scaledModelDimensions(config).scale) {
+  return clampNumber(config.frontProjection * modelScale, 0, 0.42);
 }
 
-function scaledHandleEdgeOffset(config: RenderConfig, panelWidth: number) {
-  return clampNumber(config.handleOffset / 620, 0.025, Math.max(0.03, panelWidth * 0.46));
+function scaledSashDepth(config: RenderConfig, modelDepth: number, modelScale = scaledModelDimensions(config).scale) {
+  return clampNumber(config.sashThickness * modelScale, 0.018, Math.max(modelDepth * 1.3, 0.18));
+}
+
+function scaledHandleLength(config: RenderConfig, panelHeight: number, modelScale = scaledModelDimensions(config).scale) {
+  return clampNumber(config.handleLength * modelScale, Math.min(0.045, panelHeight * 0.12), Math.max(0.05, panelHeight * 0.88));
+}
+
+function scaledHandleEdgeOffset(config: RenderConfig, panelWidth: number, modelScale = scaledModelDimensions(config).scale) {
+  return clampNumber(config.handleOffset * modelScale, 0, Math.max(0.03, panelWidth * 0.46));
 }
 
 function normalizeConfig(config: RenderConfig) {
@@ -1181,6 +1210,222 @@ function createDefaultPlacement(offset = 0): PlacementState {
   };
 }
 
+type JoineryAddBox = (
+  size: THREE.Vector3Tuple,
+  position: THREE.Vector3Tuple,
+  material: THREE.Material,
+  edged?: boolean
+) => THREE.Mesh;
+
+function buildModernJoineryModel({
+  config,
+  width,
+  height,
+  depth,
+  frame,
+  reveal,
+  frontProjection,
+  modelScale,
+  addBox,
+  addSphere,
+  profileMaterial,
+  innerMaterial,
+  glassMaterial,
+  glassHighlightMaterial,
+  gasketMaterial,
+  metalMaterial
+}: {
+  config: RenderConfig;
+  width: number;
+  height: number;
+  depth: number;
+  frame: number;
+  reveal: number;
+  frontProjection: number;
+  modelScale: number;
+  addBox: JoineryAddBox;
+  addSphere: (radius: number, position: THREE.Vector3Tuple, material: THREE.Material) => THREE.Mesh;
+  profileMaterial: THREE.Material;
+  innerMaterial: THREE.Material;
+  glassMaterial: THREE.Material;
+  glassHighlightMaterial: THREE.Material;
+  gasketMaterial: THREE.Material;
+  metalMaterial: THREE.Material;
+}) {
+  const mainDepth = Math.max(depth * 0.9, 0.18);
+  const faceDepth = Math.max(depth * 0.18, 0.052);
+  const faceZ = depth / 2 + faceDepth / 2;
+  const shadowZ = faceZ + faceDepth * 0.26;
+  const lip = clampNumber(frame * 0.18, 0.028, 0.13);
+  const gasket = clampNumber(frame * 0.08 + reveal * 0.4, 0.014, 0.08);
+  const bead = clampNumber(frame * 0.14 + reveal * 0.18, 0.024, 0.095);
+  const sash = clampNumber(
+    config.sashThickness / 520 + reveal * 0.08,
+    Math.max(frame * 0.28, 0.025),
+    Math.max(frame * 0.72, Math.min(width, height) * 0.18)
+  );
+  const sashDepth = scaledSashDepth(config, depth, modelScale);
+  const sashZ = depth * 0.25 + frontProjection;
+  const beadZ = sashZ + sashDepth / 2 + faceDepth * 0.34;
+  const glassZ = beadZ + faceDepth * 0.18;
+  const innerWidth = Math.max(0.32, width - frame * 2);
+  const innerHeight = Math.max(0.32, height - frame * 2);
+  const paneWidth = innerWidth / config.verticalDivisions;
+  const paneHeight = innerHeight / config.horizontalDivisions;
+  const activeColumn = config.openingMode === "fixed" ? -1 : Math.max(0, config.verticalDivisions - 1);
+
+  function addFrameRing(
+    centerX: number,
+    centerY: number,
+    outerWidth: number,
+    outerHeight: number,
+    rail: number,
+    z: number,
+    railDepth: number,
+    material: THREE.Material,
+    inset = 0
+  ) {
+    const horizontalWidth = Math.max(rail * 2, outerWidth - inset * 2);
+    const verticalHeight = Math.max(rail * 2, outerHeight - inset * 2);
+    addBox([horizontalWidth, rail, railDepth], [centerX, centerY + outerHeight / 2 - inset - rail / 2, z], material, false);
+    addBox([horizontalWidth, rail, railDepth], [centerX, centerY - outerHeight / 2 + inset + rail / 2, z], material, false);
+    addBox([rail, verticalHeight, railDepth], [centerX - outerWidth / 2 + inset + rail / 2, centerY, z], material, false);
+    addBox([rail, verticalHeight, railDepth], [centerX + outerWidth / 2 - inset - rail / 2, centerY, z], material, false);
+  }
+
+  function addGlassUnit(centerX: number, centerY: number, clearWidth: number, clearHeight: number, z: number) {
+    const backGlass = addBox([clearWidth, clearHeight, 0.018], [centerX, centerY, z - 0.042], glassMaterial, false);
+    const frontGlass = addBox([clearWidth, clearHeight, 0.024], [centerX, centerY, z + 0.018], glassMaterial, false);
+    backGlass.castShadow = false;
+    frontGlass.castShadow = false;
+    addBox(
+      [Math.max(clearWidth * 0.032, 0.011), clearHeight * 0.78, 0.012],
+      [centerX - clearWidth * 0.28, centerY + clearHeight * 0.04, z + 0.048],
+      glassHighlightMaterial,
+      false
+    );
+    addBox(
+      [Math.max(clearWidth * 0.016, 0.008), clearHeight * 0.55, 0.012],
+      [centerX + clearWidth * 0.31, centerY + clearHeight * 0.08, z + 0.052],
+      glassHighlightMaterial,
+      false
+    );
+  }
+
+  function addJoineryHandle(
+    centerX: number,
+    centerY: number,
+    outerWidth: number,
+    outerHeight: number,
+    sideSign: number
+  ) {
+    const handleHeight = scaledHandleLength(config, outerHeight, modelScale);
+    const handleOffset = scaledHandleEdgeOffset(config, outerWidth, modelScale);
+    const handleX = centerX + sideSign * (outerWidth / 2 - sash * 0.62 - handleOffset * 0.18);
+    const handleZ = beadZ + faceDepth * 0.82;
+    const inward = -sideSign;
+    const plateWidth = Math.max(sash * 0.2, 0.038);
+    const plateHeight = clampNumber(handleHeight * 0.46, outerHeight * 0.12, outerHeight * 0.28);
+    const plateDepth = Math.max(faceDepth * 0.58, 0.026);
+
+    if (config.handleType === "knob") {
+      addSphere(clampNumber(frame * 0.2, 0.04, 0.075), [handleX, centerY, handleZ + plateDepth * 0.9], metalMaterial);
+      addBox([plateWidth * 0.9, plateWidth * 0.9, plateDepth], [handleX, centerY, handleZ], metalMaterial, false);
+      return;
+    }
+
+    if (config.handleType === "edge") {
+      addBox([plateWidth * 0.72, handleHeight, plateDepth], [handleX + sideSign * sash * 0.18, centerY, handleZ], metalMaterial, false);
+      return;
+    }
+
+    if (config.handleType === "recessed" || config.handleType === "sliding-pull") {
+      addBox([plateWidth * 2.3, handleHeight * 1.05, plateDepth * 0.55], [handleX, centerY, handleZ - plateDepth * 0.35], gasketMaterial, false);
+      addBox([plateWidth * 0.55, handleHeight * 0.82, plateDepth], [handleX + inward * plateWidth * 0.22, centerY, handleZ + plateDepth * 0.12], metalMaterial, false);
+      return;
+    }
+
+    if (config.handleType === "bar") {
+      addBox([plateWidth * 1.25, handleHeight, plateDepth * 1.15], [handleX, centerY, handleZ], metalMaterial, false);
+      addBox([plateWidth * 0.9, handleHeight * 0.84, plateDepth * 1.35], [handleX + inward * plateWidth * 0.85, centerY, handleZ + plateDepth * 0.42], metalMaterial, false);
+      return;
+    }
+
+    addBox([plateWidth, plateHeight, plateDepth], [handleX, centerY, handleZ], metalMaterial, false);
+    addBox([plateWidth * 0.72, plateWidth * 0.72, plateDepth * 1.25], [handleX, centerY + plateHeight * 0.08, handleZ + plateDepth * 0.55], metalMaterial, false);
+    addBox(
+      [Math.max(outerWidth * 0.14, sash * 0.72), plateWidth * 0.7, plateDepth * 1.25],
+      [handleX + inward * Math.max(outerWidth * 0.07, sash * 0.36), centerY + plateHeight * 0.08, handleZ + plateDepth * 0.86],
+      metalMaterial,
+      false
+    );
+  }
+
+  addFrameRing(0, 0, width, height, frame, 0, mainDepth, profileMaterial);
+  addFrameRing(0, 0, width - frame * 0.34, height - frame * 0.34, lip, faceZ, faceDepth, innerMaterial, frame * 0.3);
+  addFrameRing(0, 0, innerWidth, innerHeight, gasket, shadowZ, faceDepth * 0.65, gasketMaterial);
+
+  for (let column = 1; column < config.verticalDivisions; column += 1) {
+    const x = -innerWidth / 2 + paneWidth * column;
+    addBox([frame * 0.64, innerHeight, mainDepth * 0.96], [x, 0, 0], innerMaterial, false);
+    addBox([lip, innerHeight - lip, faceDepth], [x, 0, faceZ], profileMaterial, false);
+    addBox([gasket, innerHeight - lip * 1.3, faceDepth * 0.68], [x - frame * 0.24, 0, shadowZ], gasketMaterial, false);
+    addBox([gasket, innerHeight - lip * 1.3, faceDepth * 0.68], [x + frame * 0.24, 0, shadowZ], gasketMaterial, false);
+  }
+
+  for (let row = 1; row < config.horizontalDivisions; row += 1) {
+    const y = innerHeight / 2 - paneHeight * row;
+    addBox([innerWidth, frame * 0.64, mainDepth * 0.96], [0, y, 0], innerMaterial, false);
+    addBox([innerWidth - lip, lip, faceDepth], [0, y, faceZ], profileMaterial, false);
+    addBox([innerWidth - lip, gasket, faceDepth * 0.68], [0, y - frame * 0.24, shadowZ], gasketMaterial, false);
+    addBox([innerWidth - lip, gasket, faceDepth * 0.68], [0, y + frame * 0.24, shadowZ], gasketMaterial, false);
+  }
+
+  for (let row = 0; row < config.horizontalDivisions; row += 1) {
+    for (let column = 0; column < config.verticalDivisions; column += 1) {
+      const centerX = -innerWidth / 2 + paneWidth * (column + 0.5);
+      const centerY = innerHeight / 2 - paneHeight * (row + 0.5);
+      const active = column === activeColumn;
+      const boundaryInset = Math.max(reveal * 0.35, 0.004);
+      const cellWidth = Math.max(0.2, paneWidth - boundaryInset * 2);
+      const cellHeight = Math.max(0.2, paneHeight - boundaryInset * 2);
+
+      if (active) {
+        const sashOuterWidth = Math.max(0.18, cellWidth - boundaryInset * 0.6);
+        const sashOuterHeight = Math.max(0.18, cellHeight - boundaryInset * 0.6);
+        const clearWidth = Math.max(0.1, sashOuterWidth - sash * 2 - bead * 1.35);
+        const clearHeight = Math.max(0.1, sashOuterHeight - sash * 2 - bead * 1.35);
+        addFrameRing(centerX, centerY, sashOuterWidth + reveal * 1.2, sashOuterHeight + reveal * 1.2, gasket, shadowZ + faceDepth * 0.1, faceDepth * 0.8, gasketMaterial);
+        addFrameRing(centerX, centerY, sashOuterWidth, sashOuterHeight, sash, sashZ, sashDepth, innerMaterial);
+        addFrameRing(centerX, centerY, sashOuterWidth - sash * 0.36, sashOuterHeight - sash * 0.36, bead, beadZ, faceDepth * 0.86, profileMaterial, sash * 0.28);
+        addFrameRing(centerX, centerY, clearWidth + bead * 1.35, clearHeight + bead * 1.35, gasket, beadZ + faceDepth * 0.2, faceDepth * 0.72, gasketMaterial);
+        addGlassUnit(centerX, centerY, clearWidth, clearHeight, glassZ);
+
+        const handleSide = config.verticalDivisions > 1 && column === activeColumn ? -1 : 1;
+        const hingeSide = -handleSide;
+        if (config.openingMode !== "sliding") {
+          const hingeX = centerX + hingeSide * (sashOuterWidth / 2 - sash * 0.32);
+          [-0.32, 0.32].forEach((offset) => {
+            addBox([sash * 0.22, sash * 0.5, sash * 0.18], [hingeX, centerY + offset * sashOuterHeight, beadZ + faceDepth * 0.18], metalMaterial, false);
+          });
+        }
+        addJoineryHandle(centerX, centerY, sashOuterWidth, sashOuterHeight, handleSide);
+      } else {
+        const clearWidth = Math.max(0.1, cellWidth - bead * 2.25);
+        const clearHeight = Math.max(0.1, cellHeight - bead * 2.25);
+        addFrameRing(centerX, centerY, cellWidth, cellHeight, bead * 1.05, faceZ + faceDepth * 0.08, faceDepth * 0.9, innerMaterial);
+        addFrameRing(centerX, centerY, clearWidth + bead * 1.24, clearHeight + bead * 1.24, gasket, shadowZ + faceDepth * 0.08, faceDepth * 0.68, gasketMaterial);
+        addGlassUnit(centerX, centerY, clearWidth, clearHeight, faceZ + faceDepth * 0.28);
+      }
+    }
+  }
+
+  if (config.openingMode === "sliding") {
+    addBox([width * 0.88, frame * 0.12, depth * 0.2], [0, -height / 2 + frame * 1.12, faceZ], metalMaterial, false);
+    addBox([width * 0.88, frame * 0.12, depth * 0.2], [0, height / 2 - frame * 1.12, faceZ], metalMaterial, false);
+  }
+}
+
 function ProductionThreeScene({
   config,
   calculations,
@@ -1285,13 +1530,11 @@ function ProductionThreeScene({
       metalness: 0.02,
       roughness: 0.48
     });
-    const width = clampNumber(config.width / 620, 1.4, 5.4);
-    const height = clampNumber(config.height / 620, 1.2, 5.1);
-    const depth = clampNumber(config.depth / 260, 0.22, 1.9);
-    const frame = scaledFrameThickness(config);
-    const reveal = scaledRevealGap(config);
-    const frontProjection = scaledFrontProjection(config);
-    const maxSize = Math.max(width, height);
+    const modelDimensions = scaledModelDimensions(config, config.family === "fence" ? 5.2 : 4.6);
+    const { width, height, depth, scale: modelScale, maxSize } = modelDimensions;
+    const frame = scaledFrameThickness(config, modelScale);
+    const reveal = scaledRevealGap(config, modelScale);
+    const frontProjection = scaledFrontProjection(config, modelScale);
 
     function addBox(
       target: THREE.Group,
@@ -1330,6 +1573,26 @@ function ProductionThreeScene({
     }
 
     function buildJoinery() {
+      buildModernJoineryModel({
+        addBox: (size, position, material, edged) => addBox(model, size, position, material, edged),
+        addSphere: (radius, position, material) => addSphere(model, radius, position, material),
+        config,
+        depth,
+        frame,
+        frontProjection,
+        modelScale,
+        gasketMaterial,
+        glassHighlightMaterial,
+        glassMaterial,
+        height,
+        innerMaterial,
+        metalMaterial,
+        profileMaterial,
+        reveal,
+        width
+      });
+      return;
+
       const mainDepth = Math.max(depth * 0.86, 0.16);
       const faceDepth = Math.max(depth * 0.2, 0.055);
       const faceZ = depth / 2 + faceDepth / 2;
@@ -1419,8 +1682,8 @@ function ProductionThreeScene({
       }
 
       if (config.openingMode !== "fixed") {
-        const handleHeight = scaledHandleLength(config, height);
-        const handleOffset = scaledHandleEdgeOffset(config, width);
+        const handleHeight = scaledHandleLength(config, height, modelScale);
+        const handleOffset = scaledHandleEdgeOffset(config, width, modelScale);
         const handleX = width / 2 - frame - handleOffset * 0.32;
         const handleZ = beadZ + faceDepth * 0.85;
         addBox(model, [frame * 0.18, handleHeight * 1.08, frame * 0.09], [handleX, 0, handleZ - frame * 0.05], gasketMaterial, false);
@@ -1470,11 +1733,11 @@ function ProductionThreeScene({
       const moduleWidth = innerWidth / doorCount;
       const doorThickness = Math.max(frontProjection, board * 0.22, 0.035);
       const doorWidth = clampNumber(
-        config.doorWidth / 620,
+        config.doorWidth * modelScale,
         Math.min(0.12, moduleWidth * 0.5),
         config.doorSystem === "sliding" ? moduleWidth * 1.16 : moduleWidth * 0.96
       );
-      const doorHeight = clampNumber(config.doorHeight / 620, 0.12, innerHeight * 0.98);
+      const doorHeight = clampNumber(config.doorHeight * modelScale, 0.12, innerHeight * 0.98);
       const frontZ = depth / 2 + doorThickness * 0.72;
 
       function addFurnitureHandle(
@@ -1485,9 +1748,9 @@ function ProductionThreeScene({
         panelHeight: number,
         sideSign: number
       ) {
-        const handleX = centerX + sideSign * (panelWidth / 2 - scaledHandleEdgeOffset(config, panelWidth));
+        const handleX = centerX + sideSign * (panelWidth / 2 - scaledHandleEdgeOffset(config, panelWidth, modelScale));
         const handleZ = panelZ + doorThickness * 0.9;
-        const handleHeight = scaledHandleLength(config, panelHeight);
+        const handleHeight = scaledHandleLength(config, panelHeight, modelScale);
 
         if (config.handleType === "knob") {
           addSphere(model, clampNumber(board * 0.18, 0.035, 0.07), [handleX, centerY, handleZ], metalMaterial);
@@ -1809,15 +2072,20 @@ function PlacementThreeElement({
   selected: boolean;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const placementStateRef = useRef(element.placement);
   const config = element.config;
   const textures = element.textures;
   const placementStyle = {
     "--placement-ratio": String(clampNumber(element.width / Math.max(1, element.height), 0.28, 4.2)),
     left: `${element.placement.x}%`,
     top: `${element.placement.y}%`,
-    transform: `translate(-50%, -50%) perspective(900px) rotateX(${element.placement.rotateX}deg) rotateY(${element.placement.rotateY}deg) rotateZ(${element.placement.rotation}deg)`,
+    transform: "translate(-50%, -50%)",
     width: `${element.placement.scale}%`
   } as CSSProperties;
+
+  useEffect(() => {
+    placementStateRef.current = element.placement;
+  }, [element.placement]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -1836,6 +2104,8 @@ function PlacementThreeElement({
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.setClearColor(0x000000, 0);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
     const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
@@ -1900,12 +2170,11 @@ function PlacementThreeElement({
       roughness: 0.22
     });
 
-    const width = clampNumber(config.width / 620, 0.75, 5.4);
-    const height = clampNumber(config.height / 620, 0.55, 5.1);
-    const depth = clampNumber(config.depth / 260, 0.08, 1.9);
-    const frame = scaledFrameThickness(config);
-    const reveal = scaledRevealGap(config);
-    const frontProjection = scaledFrontProjection(config);
+    const modelDimensions = scaledModelDimensions(config, 4.2);
+    const { width, height, depth, scale: modelScale } = modelDimensions;
+    const frame = scaledFrameThickness(config, modelScale);
+    const reveal = scaledRevealGap(config, modelScale);
+    const frontProjection = scaledFrontProjection(config, modelScale);
 
     function addBox(
       size: THREE.Vector3Tuple,
@@ -1944,9 +2213,9 @@ function PlacementThreeElement({
       board: number,
       doorThickness: number
     ) {
-      const handleX = centerX + sideSign * (panelWidth / 2 - scaledHandleEdgeOffset(config, panelWidth));
+      const handleX = centerX + sideSign * (panelWidth / 2 - scaledHandleEdgeOffset(config, panelWidth, modelScale));
       const handleZ = panelZ + doorThickness * 0.9;
-      const handleHeight = scaledHandleLength(config, panelHeight);
+      const handleHeight = scaledHandleLength(config, panelHeight, modelScale);
 
       if (config.handleType === "knob") {
         addSphere(clampNumber(board * 0.18, 0.035, 0.07), [handleX, centerY, handleZ], metalMaterial);
@@ -1988,6 +2257,26 @@ function PlacementThreeElement({
     }
 
     function buildJoinery() {
+      buildModernJoineryModel({
+        addBox,
+        addSphere,
+        config,
+        depth,
+        frame,
+        frontProjection,
+        modelScale,
+        gasketMaterial,
+        glassHighlightMaterial,
+        glassMaterial,
+        height,
+        innerMaterial,
+        metalMaterial,
+        profileMaterial,
+        reveal,
+        width
+      });
+      return;
+
       const mainDepth = Math.max(depth * 0.86, 0.16);
       const faceDepth = Math.max(depth * 0.2, 0.055);
       const faceZ = depth / 2 + faceDepth / 2;
@@ -2077,8 +2366,8 @@ function PlacementThreeElement({
       }
 
       if (config.openingMode !== "fixed") {
-        const handleHeight = scaledHandleLength(config, height);
-        const handleOffset = scaledHandleEdgeOffset(config, width);
+        const handleHeight = scaledHandleLength(config, height, modelScale);
+        const handleOffset = scaledHandleEdgeOffset(config, width, modelScale);
         const handleX = width / 2 - frame - handleOffset * 0.32;
         const handleZ = beadZ + faceDepth * 0.85;
         addBox([frame * 0.18, handleHeight * 1.08, frame * 0.09], [handleX, 0, handleZ - frame * 0.05], gasketMaterial, false);
@@ -2124,8 +2413,8 @@ function PlacementThreeElement({
       const doorCount = Math.max(1, config.verticalDivisions);
       const moduleWidth = innerWidth / doorCount;
       const doorThickness = Math.max(frontProjection, board * 0.22, 0.035);
-      const doorWidth = clampNumber(config.doorWidth / 620, 0.12, config.doorSystem === "sliding" ? moduleWidth * 1.16 : moduleWidth * 0.96);
-      const doorHeight = clampNumber(config.doorHeight / 620, 0.12, innerHeight * 0.98);
+      const doorWidth = clampNumber(config.doorWidth * modelScale, 0.12, config.doorSystem === "sliding" ? moduleWidth * 1.16 : moduleWidth * 0.96);
+      const doorHeight = clampNumber(config.doorHeight * modelScale, 0.12, innerHeight * 0.98);
       const frontZ = depth / 2 + doorThickness * 0.72;
 
       if (config.doorSystem === "sliding") {
@@ -2189,10 +2478,16 @@ function PlacementThreeElement({
     scene.add(ambient);
     const keyLight = new THREE.DirectionalLight(0xffffff, 2.7);
     keyLight.position.set(-2.2, 3.8, 4.2);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.width = 1024;
+    keyLight.shadow.mapSize.height = 1024;
     scene.add(keyLight);
     const rimLight = new THREE.PointLight(0xf97316, 4.2, 7);
     rimLight.position.set(2.4, 1.6, 3.4);
     scene.add(rimLight);
+    const fillLight = new THREE.PointLight(0x8bdcff, 2.4, 6);
+    fillLight.position.set(-2.4, -0.3, 2.4);
+    scene.add(fillLight);
 
     const box = new THREE.Box3().setFromObject(model);
     const size = new THREE.Vector3();
@@ -2214,7 +2509,16 @@ function PlacementThreeElement({
     }
 
     let frameId = 0;
+    const basePitch = config.family === "joinery" ? 0.05 : 0.08;
+    const baseYaw = config.family === "fence" ? -0.18 : -0.26;
     function renderFrame() {
+      const placement = placementStateRef.current;
+      const targetX = basePitch + THREE.MathUtils.degToRad(placement.rotateX * 0.78);
+      const targetY = baseYaw + THREE.MathUtils.degToRad(placement.rotateY * 0.88);
+      const targetZ = THREE.MathUtils.degToRad(placement.rotation);
+      model.rotation.x += (targetX - model.rotation.x) * 0.18;
+      model.rotation.y += (targetY - model.rotation.y) * 0.18;
+      model.rotation.z += (targetZ - model.rotation.z) * 0.18;
       renderer.render(scene, camera);
       frameId = requestAnimationFrame(renderFrame);
     }
@@ -2272,9 +2576,10 @@ export function ProductionRenderer({
     doorHeight: 1420,
     revealGap: 6,
     frontProjection: 28,
+    sashThickness: 82,
     handleLength: 360,
     handleOffset: 70,
-    handleType: "bar",
+    handleType: "standard",
     series: "PVC 82MD",
     profileStatus: "DOSTUPNO",
     glassStatus: "DSL - DOSTUPNO",
@@ -2593,8 +2898,10 @@ export function ProductionRenderer({
           openingMode: "tilt-turn",
           revealGap: 6,
           frontProjection: 28,
+          sashThickness: 82,
           handleLength: 360,
-          handleOffset: 70
+          handleOffset: 70,
+          handleType: "standard"
         },
         furniture: {
           width: 1195,
@@ -2608,8 +2915,10 @@ export function ProductionRenderer({
           doorHeight: 600,
           revealGap: 4,
           frontProjection: 22,
+          sashThickness: 18,
           handleLength: 260,
-          handleOffset: 55
+          handleOffset: 55,
+          handleType: "bar"
         },
         universal: {
           width: 1200,
@@ -2620,6 +2929,7 @@ export function ProductionRenderer({
           horizontalDivisions: 4,
           revealGap: 3,
           frontProjection: 12,
+          sashThickness: 18,
           handleLength: 260,
           handleOffset: 55
         },
@@ -2632,6 +2942,7 @@ export function ProductionRenderer({
           horizontalDivisions: 3,
           revealGap: 12,
           frontProjection: 20,
+          sashThickness: 70,
           handleLength: 260,
           handleOffset: 55,
           profileStatus: "DOSTUPNO",
@@ -2715,6 +3026,16 @@ export function ProductionRenderer({
           : element
       )
     );
+  }
+
+  function activatePlacementMode(mode: PlacementMode) {
+    setPlacementMode(mode);
+    if (mode === "rotate" && selectedElement) {
+      updatePlacement(
+        "rotateY",
+        Math.round(clampNumber(placement.rotateY + (placement.rotateY > 50 ? -24 : 18), -68, 68))
+      );
+    }
   }
 
   function resetPlacementValue<K extends keyof PlacementState>(key: K) {
@@ -2961,6 +3282,7 @@ export function ProductionRenderer({
     sliding: t.slidingDoors
   };
   const handleTypeLabel: Record<HandleType, string> = {
+    standard: t.standardHandle,
     bar: t.barHandle,
     knob: t.knobHandle,
     edge: t.edgeHandle,
@@ -2999,6 +3321,12 @@ export function ProductionRenderer({
             <span>
               <DoorOpen size={15} />
               {doorSystemLabel[config.doorSystem]} - {config.doorWidth} x {config.doorHeight} mm - {handleTypeLabel[config.handleType]}
+            </span>
+          ) : null}
+          {isJoinery && config.openingMode !== "fixed" ? (
+            <span>
+              <DoorOpen size={15} />
+              {handleTypeLabel[config.handleType]}
             </span>
           ) : null}
         </div>
@@ -3169,6 +3497,28 @@ export function ProductionRenderer({
                 <span>{t.frontProjection} mm</span>
                 <input {...numericInputProps("frontProjection")} />
               </label>
+              {isJoinery ? (
+                <label>
+                  <span>{t.sashThickness} mm</span>
+                  <input {...numericInputProps("sashThickness")} disabled={config.openingMode === "fixed"} />
+                </label>
+              ) : null}
+              {isJoinery ? (
+                <label>
+                  <span>{t.handleType}</span>
+                  <select
+                    disabled={config.openingMode === "fixed"}
+                    onChange={(event) => update("handleType", event.target.value as HandleType)}
+                    value={config.handleType}
+                  >
+                    <option value="standard">{t.standardHandle}</option>
+                    <option value="bar">{t.barHandle}</option>
+                    <option value="edge">{t.edgeHandle}</option>
+                    <option value="recessed">{t.recessedHandle}</option>
+                    <option value="sliding-pull">{t.slidingPullHandle}</option>
+                  </select>
+                </label>
+              ) : null}
               {!isFence ? (
                 <>
                   <label>
@@ -3208,6 +3558,7 @@ export function ProductionRenderer({
                 <label>
                   <span>{t.handleType}</span>
                   <select value={config.handleType} onChange={(event) => update("handleType", event.target.value as HandleType)} disabled={config.doorSystem === "none"}>
+                    <option value="standard">{t.standardHandle}</option>
                     <option value="bar">{t.barHandle}</option>
                     <option value="knob">{t.knobHandle}</option>
                     <option value="edge">{t.edgeHandle}</option>
@@ -3468,28 +3819,37 @@ export function ProductionRenderer({
           <div className="placement-sliders">
             <div className="placement-mode-toggle">
               <button
+                aria-pressed={placementMode === "move"}
                 className={placementMode === "move" ? "active" : ""}
-                onClick={() => setPlacementMode("move")}
+                onClick={() => activatePlacementMode("move")}
                 type="button"
               >
                 <Move size={14} />
                 {t.moveMode}
               </button>
               <button
+                aria-pressed={placementMode === "rotate"}
                 className={placementMode === "rotate" ? "active" : ""}
-                onClick={() => setPlacementMode("rotate")}
+                onClick={() => activatePlacementMode("rotate")}
                 type="button"
               >
                 <RotateCw size={14} />
                 {t.rotateMode}
               </button>
             </div>
-            {renderPlacementSlider("x", t.xPosition, <Move size={14} />, 0, 100)}
-            {renderPlacementSlider("y", t.yPosition, <Move size={14} />, 0, 100)}
-            {renderPlacementSlider("scale", t.scale, <Ruler size={14} />, 12, 180)}
-            {renderPlacementSlider("rotateY", t.yaw, <RotateCw size={14} />, -68, 68)}
-            {renderPlacementSlider("rotateX", t.pitch, <RotateCw size={14} />, -48, 48)}
-            {renderPlacementSlider("rotation", t.roll, <RotateCw size={14} />, -180, 180)}
+            {placementMode === "move" ? (
+              <>
+                {renderPlacementSlider("x", t.xPosition, <Move size={14} />, 0, 100)}
+                {renderPlacementSlider("y", t.yPosition, <Move size={14} />, 0, 100)}
+                {renderPlacementSlider("scale", t.scale, <Ruler size={14} />, 12, 180)}
+              </>
+            ) : (
+              <>
+                {renderPlacementSlider("rotateY", t.yaw, <RotateCw size={14} />, -68, 68)}
+                {renderPlacementSlider("rotateX", t.pitch, <RotateCw size={14} />, -48, 48)}
+                {renderPlacementSlider("rotation", t.roll, <RotateCw size={14} />, -180, 180)}
+              </>
+            )}
           </div>
         </div>
       </div>

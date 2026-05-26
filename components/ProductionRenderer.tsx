@@ -180,10 +180,10 @@ type ProductionRendererProps = {
 const copy = {
   bhs: {
     family: "Tip proizvoda",
-    joinery: "Stolarija",
-    furniture: "Kuhinje",
-    universal: "Namještaj",
-    fence: "Ograde",
+    joinery: "STOLARIJA",
+    furniture: "KUHINJE",
+    universal: "NAMJESTAJ",
+    fence: "OGRADE",
     dimensions: "Dimenzije",
     width: "Širina",
     fenceLength: "Dužina",
@@ -4061,14 +4061,14 @@ export function ProductionRenderer({
               <strong>{t.family}</strong>
             </div>
             <div className="segmented-control">
-              {(["joinery", "furniture", "universal", "fence"] as RenderFamily[]).map((family) => (
+              {(["furniture", "universal", "joinery", "fence"] as RenderFamily[]).map((family) => (
                 <button
                   className={config.family === family ? "active" : ""}
                   key={family}
                   onClick={() => applyFamilyPreset(family)}
                   type="button"
                 >
-                  {t[family]}
+                  {t[family].toLocaleUpperCase()}
                 </button>
               ))}
             </div>

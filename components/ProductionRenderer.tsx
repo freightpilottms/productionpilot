@@ -1278,7 +1278,7 @@ function buildModernJoineryModel({
     Math.max(frame * 0.72, Math.min(width, height) * 0.18)
   );
   const sashDepth = scaledSashDepth(config, depth, modelScale);
-  const sashZ = depth * 0.25 + frontProjection;
+  const sashZ = depth / 2 + frontProjection * 0.55 + sashDepth * 0.12;
   const beadZ = sashZ + sashDepth / 2 + faceDepth * 0.34;
   const glassZ = beadZ + faceDepth * 0.18;
   const innerWidth = Math.max(0.32, width - frame * 2);
@@ -1409,7 +1409,21 @@ function buildModernJoineryModel({
     );
   }
 
-  function addProfileHighlights(
+  function addShadowRing(
+    centerX: number,
+    centerY: number,
+    outerWidth: number,
+    outerHeight: number,
+    rail: number,
+    z: number,
+    depthSize: number,
+    target?: THREE.Group,
+    origin: THREE.Vector3Tuple = [0, 0, 0]
+  ) {
+    addFrameRing(centerX, centerY, outerWidth, outerHeight, rail, z, depthSize, gasketMaterial, 0, target, origin);
+  }
+
+  function addProfileStep(
     centerX: number,
     centerY: number,
     outerWidth: number,
@@ -1424,25 +1438,36 @@ function buildModernJoineryModel({
       y - origin[1],
       nextZ - origin[2]
     ];
-    const line = clampNumber(rail * 0.08, 0.006, 0.026);
-    const highlightZ = z + faceDepth * 0.34;
+    const bevel = clampNumber(rail * 0.09, 0.008, 0.026);
+    const lineZ = z + faceDepth * 0.42;
     addBox(
-      [Math.max(line, outerWidth - rail * 1.12), line, line],
-      place(centerX, centerY + outerHeight / 2 - rail * 0.2, highlightZ),
+      [Math.max(bevel, outerWidth - rail * 1.22), bevel, bevel],
+      place(centerX, centerY + outerHeight / 2 - rail * 0.22, lineZ),
       glassHighlightMaterial,
       false,
       target
     );
     addBox(
-      [line, Math.max(line, outerHeight - rail * 1.12), line],
-      place(centerX - outerWidth / 2 + rail * 0.2, centerY, highlightZ),
+      [bevel, Math.max(bevel, outerHeight - rail * 1.22), bevel],
+      place(centerX - outerWidth / 2 + rail * 0.22, centerY, lineZ),
       glassHighlightMaterial,
       false,
       target
+    );
+    addShadowRing(
+      centerX,
+      centerY,
+      outerWidth - rail * 0.58,
+      outerHeight - rail * 0.58,
+      Math.max(gasket * 0.42, 0.007),
+      z + faceDepth * 0.5,
+      faceDepth * 0.36,
+      target,
+      origin
     );
   }
 
-  function addCleanFrameRing(
+  function addProfileRing(
     centerX: number,
     centerY: number,
     outerWidth: number,
@@ -1452,167 +1477,224 @@ function buildModernJoineryModel({
     railDepth: number,
     material: THREE.Material,
     target?: THREE.Group,
-    origin: THREE.Vector3Tuple = [0, 0, 0]
+    origin: THREE.Vector3Tuple = [0, 0, 0],
+    stepped = true
   ) {
     addFrameRing(centerX, centerY, outerWidth, outerHeight, rail, z, railDepth, material, 0, target, origin);
-    addProfileHighlights(centerX, centerY, outerWidth, outerHeight, rail, z, target, origin);
+    if (stepped) {
+      addProfileStep(centerX, centerY, outerWidth, outerHeight, rail, z, target, origin);
+    }
   }
 
-  function addGasketRing(
+  function addPaneGlass(
     centerX: number,
     centerY: number,
-    outerWidth: number,
-    outerHeight: number,
+    clearWidth: number,
+    clearHeight: number,
     z: number,
     target?: THREE.Group,
     origin: THREE.Vector3Tuple = [0, 0, 0]
   ) {
-    const slim = clampNumber(gasket * 0.75, 0.008, 0.032);
-    addFrameRing(centerX, centerY, outerWidth, outerHeight, slim, z, faceDepth * 0.42, gasketMaterial, 0, target, origin);
+    const gasketRail = clampNumber(gasket * 0.92, 0.009, 0.034);
+    addShadowRing(
+      centerX,
+      centerY,
+      clearWidth + gasketRail * 3.2,
+      clearHeight + gasketRail * 3.2,
+      gasketRail,
+      z - faceDepth * 0.16,
+      faceDepth * 0.58,
+      target,
+      origin
+    );
+    addGlassUnit(centerX, centerY, clearWidth, clearHeight, z + faceDepth * 0.04, target, origin);
   }
 
-  const fixedSashRail = clampNumber(sash * 0.62, frame * 0.24, frame * 0.48);
-  const activeSashRail = clampNumber(sash * 0.76, frame * 0.28, frame * 0.58);
-  const glassInset = Math.max(bead * 1.1, gasket * 2.2);
-  const frameFaceRail = clampNumber(frame * 0.32, 0.04, frame * 0.54);
-  const mullionWidth = clampNumber(frame * 0.56, 0.06, frame * 0.82);
+  function addRealisticSash(
+    centerX: number,
+    centerY: number,
+    outerWidth: number,
+    outerHeight: number,
+    rail: number,
+    z: number,
+    railDepth: number,
+    target?: THREE.Group,
+    origin: THREE.Vector3Tuple = [0, 0, 0]
+  ) {
+    const frontSkinZ = z + railDepth * 0.5 + faceDepth * 0.4;
+    const rearSkinZ = z - railDepth * 0.45;
+    const beadRail = clampNumber(rail * 0.24, 0.02, rail * 0.42);
+    const glassWidth = Math.max(0.08, outerWidth - rail * 2.32);
+    const glassHeight = Math.max(0.08, outerHeight - rail * 2.32);
 
-  addCleanFrameRing(0, 0, width, height, frame, 0, mainDepth, profileMaterial);
-  addCleanFrameRing(
+    addProfileRing(centerX, centerY, outerWidth, outerHeight, rail, z, railDepth, innerMaterial, target, origin);
+    addProfileRing(
+      centerX,
+      centerY,
+      outerWidth - rail * 0.36,
+      outerHeight - rail * 0.36,
+      beadRail,
+      frontSkinZ,
+      faceDepth * 0.72,
+      innerMaterial,
+      target,
+      origin,
+      false
+    );
+    addProfileRing(
+      centerX,
+      centerY,
+      outerWidth - rail * 0.68,
+      outerHeight - rail * 0.68,
+      Math.max(beadRail * 0.72, gasket * 0.8),
+      rearSkinZ,
+      faceDepth * 0.5,
+      profileMaterial,
+      target,
+      origin,
+      false
+    );
+    addPaneGlass(centerX, centerY, glassWidth, glassHeight, frontSkinZ + faceDepth * 0.34, target, origin);
+  }
+
+  const frameFaceRail = clampNumber(frame * 0.38, 0.052, frame * 0.62);
+  const mullionRail = clampNumber(frame * 0.62, 0.07, frame * 0.92);
+  const fixedRail = clampNumber(sash * 0.62, frame * 0.32, frame * 0.56);
+  const sashRail = clampNumber(sash * 0.86, frame * 0.42, frame * 0.74);
+  const frameFrontZ = faceZ + frontProjection * 0.36;
+  const sashCenterZ = sashZ;
+  const hardwareZ = sashCenterZ - sashDepth * 0.55 - faceDepth * 0.46;
+  const boundaryInset = Math.max(reveal * 0.35, frame * 0.035, 0.006);
+
+  addProfileRing(0, 0, width, height, frame, 0, mainDepth, profileMaterial);
+  addProfileRing(
     0,
     0,
-    width - frame * 0.42,
-    height - frame * 0.42,
+    width - frame * 0.46,
+    height - frame * 0.46,
     frameFaceRail,
-    faceZ,
-    faceDepth,
+    frameFrontZ,
+    faceDepth * 1.15,
     innerMaterial
   );
-  addGasketRing(0, 0, innerWidth + gasket * 1.4, innerHeight + gasket * 1.4, shadowZ);
+  addShadowRing(0, 0, innerWidth + gasket * 1.8, innerHeight + gasket * 1.8, Math.max(gasket, 0.012), shadowZ, faceDepth * 0.62);
+  addBox([width + frame * 0.12, frame * 0.22, mainDepth * 0.62], [0, -height / 2 - frame * 0.06, depth * 0.08], profileMaterial, false);
 
   for (let column = 1; column < config.verticalDivisions; column += 1) {
     const x = -innerWidth / 2 + paneWidth * column;
-    const faceWidth = THREE.MathUtils.lerp(mullionWidth * 0.7, mullionWidth, easedOpening * 0.35);
-    addBox([mullionWidth, innerHeight, mainDepth * 0.9], [x, 0, 0], profileMaterial, false);
-    addBox([faceWidth, innerHeight - frame * 0.34, faceDepth * 1.04], [x, 0, faceZ], innerMaterial, false);
-    addBox([gasket * 0.72, innerHeight - frame * 0.92, faceDepth * 0.56], [x - faceWidth * 0.46, 0, shadowZ], gasketMaterial, false);
-    addBox([gasket * 0.72, innerHeight - frame * 0.92, faceDepth * 0.56], [x + faceWidth * 0.46, 0, shadowZ], gasketMaterial, false);
+    addBox([mullionRail, innerHeight, mainDepth * 0.86], [x, 0, 0], profileMaterial, false);
+    addBox([mullionRail * 0.66, innerHeight - frame * 0.54, faceDepth * 1.2], [x, 0, frameFrontZ + faceDepth * 0.04], innerMaterial, false);
+    addShadowRing(x, 0, mullionRail * 0.92, innerHeight - frame * 0.78, Math.max(gasket * 0.54, 0.008), shadowZ + faceDepth * 0.12, faceDepth * 0.52);
   }
 
   for (let row = 1; row < config.horizontalDivisions; row += 1) {
     const y = innerHeight / 2 - paneHeight * row;
-    addBox([innerWidth, mullionWidth, mainDepth * 0.9], [0, y, 0], profileMaterial, false);
-    addBox([innerWidth - frame * 0.34, mullionWidth * 0.78, faceDepth * 1.04], [0, y, faceZ], innerMaterial, false);
-    addBox([innerWidth - frame * 0.92, gasket * 0.72, faceDepth * 0.56], [0, y - mullionWidth * 0.36, shadowZ], gasketMaterial, false);
-    addBox([innerWidth - frame * 0.92, gasket * 0.72, faceDepth * 0.56], [0, y + mullionWidth * 0.36, shadowZ], gasketMaterial, false);
+    addBox([innerWidth, mullionRail, mainDepth * 0.86], [0, y, 0], profileMaterial, false);
+    addBox([innerWidth - frame * 0.54, mullionRail * 0.66, faceDepth * 1.2], [0, y, frameFrontZ + faceDepth * 0.04], innerMaterial, false);
+    addShadowRing(0, y, innerWidth - frame * 0.78, mullionRail * 0.92, Math.max(gasket * 0.54, 0.008), shadowZ + faceDepth * 0.12, faceDepth * 0.52);
   }
 
   for (let row = 0; row < config.horizontalDivisions; row += 1) {
     for (let column = 0; column < config.verticalDivisions; column += 1) {
       const centerX = -innerWidth / 2 + paneWidth * (column + 0.5);
       const centerY = innerHeight / 2 - paneHeight * (row + 0.5);
+      const cellWidth = Math.max(0.22, paneWidth - boundaryInset * 2);
+      const cellHeight = Math.max(0.22, paneHeight - boundaryInset * 2);
       const active = column === activeColumn;
-      const boundaryInset = Math.max(reveal * 0.35, 0.004);
-      const cellWidth = Math.max(0.2, paneWidth - boundaryInset * 2);
-      const cellHeight = Math.max(0.2, paneHeight - boundaryInset * 2);
 
-      if (active) {
-        const sashOuterWidth = Math.max(0.18, cellWidth - boundaryInset * 0.6);
-        const sashOuterHeight = Math.max(0.18, cellHeight - boundaryInset * 0.6);
-        const clearWidth = Math.max(0.1, sashOuterWidth - activeSashRail * 2 - glassInset);
-        const clearHeight = Math.max(0.1, sashOuterHeight - activeSashRail * 2 - glassInset);
-        const handleSide = config.verticalDivisions > 1 && column === activeColumn ? -1 : 1;
-        const hingeSide = -handleSide;
-        const sashGroup = new THREE.Group();
-        let sashOrigin: THREE.Vector3Tuple = [0, 0, 0];
-        const hingeAxisX = centerX + hingeSide * (sashOuterWidth / 2 - activeSashRail * 0.42);
-        if (config.openingMode === "sliding") {
-          const slideDirection = centerX >= 0 ? -1 : 1;
-          sashGroup.position.set(slideDirection * sashOuterWidth * 0.5 * easedOpening, 0, frontProjection * 0.35 * easedOpening);
-        } else {
-          sashOrigin = [hingeAxisX, centerY, sashZ];
-          sashGroup.position.set(hingeAxisX, centerY, sashZ);
-          sashGroup.rotation.y = -hingeSide * THREE.MathUtils.degToRad(78) * easedOpening;
-          if (config.openingMode === "tilt" || config.openingMode === "tilt-turn") {
-            sashGroup.rotation.x = -THREE.MathUtils.degToRad(config.openingMode === "tilt" ? 10 : 4) * easedOpening;
-          }
-        }
-        addGroup(sashGroup);
-        addGasketRing(centerX, centerY, sashOuterWidth + gasket * 1.4, sashOuterHeight + gasket * 1.4, shadowZ + faceDepth * 0.1);
-        addCleanFrameRing(centerX, centerY, sashOuterWidth, sashOuterHeight, activeSashRail, sashZ, sashDepth, innerMaterial, sashGroup, sashOrigin);
-        addFrameRing(
-          centerX,
-          centerY,
-          sashOuterWidth - activeSashRail * 0.52,
-          sashOuterHeight - activeSashRail * 0.52,
-          bead,
-          beadZ,
-          faceDepth * 0.72,
-          profileMaterial,
-          activeSashRail * 0.26,
-          sashGroup,
-          sashOrigin
-        );
-        addGasketRing(centerX, centerY, clearWidth + gasket * 1.5, clearHeight + gasket * 1.5, glassZ + faceDepth * 0.08, sashGroup, sashOrigin);
-        addGlassUnit(centerX, centerY, clearWidth, clearHeight, glassZ, sashGroup, sashOrigin);
-
-        if (config.openingMode !== "sliding") {
-          const hingePlateWidth = clampNumber(activeSashRail * 0.17, 0.026, 0.07);
-          const hingeHeight = clampNumber(sashOuterHeight * 0.12, activeSashRail * 0.54, activeSashRail * 1.04);
-          const hingeDepth = Math.max(faceDepth * 0.72, 0.028);
-          const hingeZ = sashZ - sashDepth / 2 - faceDepth * 0.48;
-          const hingeOffsets = sashOuterHeight > sash * 6 ? [-0.34, 0.34] : [0];
-          hingeOffsets.forEach((offset) => {
-            const hingeY = centerY + offset * sashOuterHeight;
-            const framePlateX = hingeAxisX + hingeSide * hingePlateWidth * 0.58;
-            const sashPlateX = hingeAxisX - hingeSide * hingePlateWidth * 0.58;
-            addBox(
-              [hingePlateWidth, hingeHeight, hingeDepth],
-              [framePlateX, hingeY, hingeZ],
-              metalMaterial,
-              false
-            );
-            addBox(
-              [hingePlateWidth * 0.88, hingeHeight * 0.84, hingeDepth * 0.9],
-              [
-                sashPlateX - sashOrigin[0],
-                hingeY - sashOrigin[1],
-                hingeZ - sashOrigin[2]
-              ],
-              metalMaterial,
-              false,
-              sashGroup
-            );
-            addBox(
-              [hingePlateWidth * 0.72, hingeHeight * 1.04, hingeDepth * 0.72],
-              [hingeAxisX, hingeY, hingeZ + hingeDepth * 0.18],
-              metalMaterial,
-              false
-            );
-            addBox(
-              [hingePlateWidth * 1.9, hingeHeight * 1.14, hingeDepth * 0.2],
-              [hingeAxisX + hingeSide * hingePlateWidth * 0.12, hingeY, hingeZ - hingeDepth * 0.62],
-              gasketMaterial,
-              false
-            );
-          });
-        }
-        addJoineryHandle(centerX, centerY, sashOuterWidth, sashOuterHeight, handleSide, sashGroup, sashOrigin);
-      } else {
-        const fixedOuterWidth = Math.max(0.18, cellWidth - boundaryInset * 0.9);
-        const fixedOuterHeight = Math.max(0.18, cellHeight - boundaryInset * 0.9);
-        const clearWidth = Math.max(0.1, fixedOuterWidth - fixedSashRail * 2 - glassInset * 0.75);
-        const clearHeight = Math.max(0.1, fixedOuterHeight - fixedSashRail * 2 - glassInset * 0.75);
-        addCleanFrameRing(centerX, centerY, fixedOuterWidth, fixedOuterHeight, fixedSashRail, faceZ + faceDepth * 0.02, faceDepth * 0.95, innerMaterial);
-        addGasketRing(centerX, centerY, clearWidth + gasket * 1.5, clearHeight + gasket * 1.5, shadowZ + faceDepth * 0.08);
-        addGlassUnit(centerX, centerY, clearWidth, clearHeight, faceZ + faceDepth * 0.28);
+      if (!active) {
+        const fixedOuterWidth = Math.max(0.16, cellWidth - fixedRail * 0.16);
+        const fixedOuterHeight = Math.max(0.16, cellHeight - fixedRail * 0.16);
+        const fixedGlassWidth = Math.max(0.08, fixedOuterWidth - fixedRail * 2.12);
+        const fixedGlassHeight = Math.max(0.08, fixedOuterHeight - fixedRail * 2.12);
+        const fixedZ = frameFrontZ + faceDepth * 0.2;
+        addProfileRing(centerX, centerY, fixedOuterWidth, fixedOuterHeight, fixedRail, fixedZ, faceDepth * 1.05, innerMaterial);
+        addPaneGlass(centerX, centerY, fixedGlassWidth, fixedGlassHeight, fixedZ + faceDepth * 0.74);
+        continue;
       }
+
+      const sashOuterWidth = Math.max(0.18, cellWidth - boundaryInset * 0.45);
+      const sashOuterHeight = Math.max(0.18, cellHeight - boundaryInset * 0.45);
+      const handleSide = config.verticalDivisions > 1 && column === activeColumn ? -1 : 1;
+      const hingeSide = -handleSide;
+      const hingeAxisX = centerX + hingeSide * (sashOuterWidth / 2 - sashRail * 0.46);
+      const sashGroup = new THREE.Group();
+      let sashOrigin: THREE.Vector3Tuple = [0, 0, 0];
+
+      if (config.openingMode === "sliding") {
+        const slideDirection = centerX >= 0 ? -1 : 1;
+        sashGroup.position.set(slideDirection * sashOuterWidth * 0.52 * easedOpening, 0, frontProjection * 0.35 * easedOpening);
+      } else {
+        sashOrigin = [hingeAxisX, centerY, sashCenterZ];
+        sashGroup.position.set(hingeAxisX, centerY, sashCenterZ);
+        sashGroup.rotation.y = -hingeSide * THREE.MathUtils.degToRad(82) * easedOpening;
+        if (config.openingMode === "tilt" || config.openingMode === "tilt-turn") {
+          sashGroup.rotation.x = -THREE.MathUtils.degToRad(config.openingMode === "tilt" ? 12 : 4.5) * easedOpening;
+        }
+      }
+
+      addGroup(sashGroup);
+      addShadowRing(
+        centerX,
+        centerY,
+        sashOuterWidth + gasket * 2,
+        sashOuterHeight + gasket * 2,
+        Math.max(gasket * 0.92, 0.01),
+        shadowZ + faceDepth * 0.08,
+        faceDepth * 0.58
+      );
+      addRealisticSash(centerX, centerY, sashOuterWidth, sashOuterHeight, sashRail, sashCenterZ, sashDepth, sashGroup, sashOrigin);
+
+      const overlapX = centerX + handleSide * (sashOuterWidth / 2 - sashRail * 0.18);
+      addBox(
+        [Math.max(sashRail * 0.25, 0.035), sashOuterHeight - sashRail * 0.45, faceDepth * 0.95],
+        [overlapX - sashOrigin[0], centerY - sashOrigin[1], sashCenterZ + sashDepth * 0.52 + faceDepth * 0.42 - sashOrigin[2]],
+        innerMaterial,
+        false,
+        sashGroup
+      );
+
+      if (config.openingMode !== "sliding") {
+        const hingePlateWidth = clampNumber(sashRail * 0.16, 0.026, 0.07);
+        const hingeHeight = clampNumber(sashOuterHeight * 0.13, sashRail * 0.52, sashRail * 1.08);
+        const hingeDepth = Math.max(faceDepth * 0.68, 0.026);
+        const hingeOffsets = sashOuterHeight > sashRail * 6 ? [-0.34, 0.34] : [0];
+        hingeOffsets.forEach((offset) => {
+          const hingeY = centerY + offset * sashOuterHeight;
+          addBox(
+            [hingePlateWidth, hingeHeight, hingeDepth],
+            [hingeAxisX + hingeSide * hingePlateWidth * 0.62, hingeY, hardwareZ],
+            metalMaterial,
+            false
+          );
+          addBox(
+            [hingePlateWidth * 0.86, hingeHeight * 0.84, hingeDepth * 0.92],
+            [
+              hingeAxisX - hingeSide * hingePlateWidth * 0.62 - sashOrigin[0],
+              hingeY - sashOrigin[1],
+              hardwareZ - sashOrigin[2]
+            ],
+            metalMaterial,
+            false,
+            sashGroup
+          );
+          addBox(
+            [hingePlateWidth * 0.62, hingeHeight * 1.04, hingeDepth * 0.62],
+            [hingeAxisX, hingeY, hardwareZ + hingeDepth * 0.16],
+            metalMaterial,
+            false
+          );
+        });
+      }
+
+      addJoineryHandle(centerX, centerY, sashOuterWidth, sashOuterHeight, handleSide, sashGroup, sashOrigin);
     }
   }
 
   if (config.openingMode === "sliding") {
-    addBox([width * 0.88, frame * 0.12, depth * 0.2], [0, -height / 2 + frame * 1.12, faceZ], metalMaterial, false);
-    addBox([width * 0.88, frame * 0.12, depth * 0.2], [0, height / 2 - frame * 1.12, faceZ], metalMaterial, false);
+    const railDepth = Math.max(depth * 0.18, 0.05);
+    addBox([width * 0.86, frame * 0.12, railDepth], [0, -height / 2 + frame * 0.92, frameFrontZ + faceDepth * 0.5], metalMaterial, false);
+    addBox([width * 0.86, frame * 0.12, railDepth], [0, height / 2 - frame * 0.92, frameFrontZ + faceDepth * 0.5], metalMaterial, false);
   }
 }
 
@@ -2403,14 +2485,14 @@ function PlacementThreeElement({
     const profileMaterial = new THREE.MeshStandardMaterial({
       color: outsideTexture ? 0xffffff : outside,
       map: outsideTexture,
-      metalness: 0.18,
-      roughness: 0.34
+      metalness: 0.08,
+      roughness: 0.28
     });
     const innerMaterial = new THREE.MeshStandardMaterial({
       color: insideTexture ? 0xffffff : inside,
       map: insideTexture,
-      metalness: 0.1,
-      roughness: 0.42
+      metalness: 0.06,
+      roughness: 0.3
     });
     const boardMaterial = new THREE.MeshStandardMaterial({
       color: textures.panel ? 0xffffff : outside,
@@ -2419,27 +2501,27 @@ function PlacementThreeElement({
       roughness: 0.48
     });
     const glassMaterial = new THREE.MeshPhysicalMaterial({
-      attenuationColor: 0xe1fbff,
-      attenuationDistance: 1.5,
+      attenuationColor: 0xe4fbff,
+      attenuationDistance: 2.4,
       clearcoat: 1,
-      clearcoatRoughness: 0.05,
-      color: 0xd4fbff,
+      clearcoatRoughness: 0.04,
+      color: 0xdaf7fb,
       depthWrite: false,
       ior: 1.45,
       metalness: 0,
-      opacity: 0.46,
-      reflectivity: 0.7,
-      roughness: 0.04,
+      opacity: 0.34,
+      reflectivity: 0.86,
+      roughness: 0.018,
       side: THREE.DoubleSide,
       specularIntensity: 1,
-      thickness: 0.24,
-      transmission: 0.68,
+      thickness: 0.38,
+      transmission: 0.84,
       transparent: true
     });
     const glassHighlightMaterial = new THREE.MeshBasicMaterial({
       color: 0xffffff,
       depthWrite: false,
-      opacity: 0.32,
+      opacity: 0.28,
       transparent: true
     });
     const gasketMaterial = new THREE.MeshStandardMaterial({

@@ -1409,6 +1409,246 @@ function buildModernJoineryModel({
     );
   }
 
+  const trueMainDepth = Math.max(depth * 0.9, 0.16);
+  const trueFaceDepth = Math.max(depth * 0.16, 0.036);
+  const trueFrameFrontZ = trueMainDepth / 2 + trueFaceDepth / 2;
+  const trueGlassZ = trueFrameFrontZ + trueFaceDepth * 0.72;
+  const trueGasket = clampNumber(frame * 0.055 + reveal * 0.28, 0.01, 0.032);
+  const trueOuterRail = clampNumber(frame, 0.07, Math.min(width, height) * 0.19);
+  const trueFaceRail = clampNumber(frame * 0.36, 0.044, frame * 0.56);
+  const trueMullion = clampNumber(frame * 0.68, 0.07, frame * 0.9);
+  const trueSashRail = clampNumber(sash * 0.82, frame * 0.38, frame * 0.66);
+  const trueFixedRail = clampNumber(sash * 0.58, frame * 0.28, frame * 0.48);
+  const trueSashDepth = Math.max(sashDepth, trueMainDepth * 0.72);
+  const trueSashZ = trueFrameFrontZ + trueSashDepth * 0.12;
+  const trueHardwareZ = trueSashZ + trueSashDepth / 2 + trueFaceDepth * 0.58;
+  const trueGap = Math.max(reveal * 0.5, frame * 0.045, 0.008);
+
+  function addTrueRing(
+    centerX: number,
+    centerY: number,
+    outerWidth: number,
+    outerHeight: number,
+    rail: number,
+    z: number,
+    ringDepth: number,
+    material: THREE.Material,
+    target?: THREE.Group,
+    origin: THREE.Vector3Tuple = [0, 0, 0]
+  ) {
+    addFrameRing(centerX, centerY, outerWidth, outerHeight, rail, z, ringDepth, material, 0, target, origin);
+  }
+
+  function addTrueGasket(
+    centerX: number,
+    centerY: number,
+    outerWidth: number,
+    outerHeight: number,
+    z: number,
+    target?: THREE.Group,
+    origin: THREE.Vector3Tuple = [0, 0, 0]
+  ) {
+    addFrameRing(centerX, centerY, outerWidth, outerHeight, trueGasket, z, trueFaceDepth * 0.48, gasketMaterial, 0, target, origin);
+  }
+
+  function addTrueGlass(
+    centerX: number,
+    centerY: number,
+    glassWidth: number,
+    glassHeight: number,
+    z: number,
+    target?: THREE.Group,
+    origin: THREE.Vector3Tuple = [0, 0, 0]
+  ) {
+    addTrueGasket(centerX, centerY, glassWidth + trueGasket * 3.6, glassHeight + trueGasket * 3.6, z - trueFaceDepth * 0.32, target, origin);
+    addGlassUnit(centerX, centerY, glassWidth, glassHeight, z, target, origin);
+  }
+
+  function addTrueProfileDetail(
+    centerX: number,
+    centerY: number,
+    outerWidth: number,
+    outerHeight: number,
+    rail: number,
+    z: number,
+    target?: THREE.Group,
+    origin: THREE.Vector3Tuple = [0, 0, 0]
+  ) {
+    const place = (x: number, y: number, nextZ: number): THREE.Vector3Tuple => [
+      x - origin[0],
+      y - origin[1],
+      nextZ - origin[2]
+    ];
+    const detail = clampNumber(rail * 0.1, 0.008, 0.022);
+    addBox([outerWidth - rail * 1.15, detail, detail], place(centerX, centerY + outerHeight / 2 - rail * 0.25, z), glassHighlightMaterial, false, target);
+    addBox([detail, outerHeight - rail * 1.15, detail], place(centerX - outerWidth / 2 + rail * 0.25, centerY, z), glassHighlightMaterial, false, target);
+  }
+
+  function addTrueSash(
+    centerX: number,
+    centerY: number,
+    outerWidth: number,
+    outerHeight: number,
+    target: THREE.Group,
+    origin: THREE.Vector3Tuple
+  ) {
+    const bead = clampNumber(trueSashRail * 0.24, 0.018, trueSashRail * 0.36);
+    const sashFaceZ = trueSashZ + trueSashDepth / 2 + trueFaceDepth / 2;
+    const glassWidth = Math.max(0.08, outerWidth - trueSashRail * 2.25);
+    const glassHeight = Math.max(0.08, outerHeight - trueSashRail * 2.25);
+
+    addTrueRing(centerX, centerY, outerWidth, outerHeight, trueSashRail, trueSashZ, trueSashDepth, innerMaterial, target, origin);
+    addTrueProfileDetail(centerX, centerY, outerWidth, outerHeight, trueSashRail, sashFaceZ + trueFaceDepth * 0.38, target, origin);
+    addTrueRing(
+      centerX,
+      centerY,
+      outerWidth - trueSashRail * 0.45,
+      outerHeight - trueSashRail * 0.45,
+      bead,
+      sashFaceZ,
+      trueFaceDepth * 0.82,
+      profileMaterial,
+      target,
+      origin
+    );
+    addTrueGlass(centerX, centerY, glassWidth, glassHeight, sashFaceZ + trueFaceDepth * 0.48, target, origin);
+  }
+
+  function addTrueHandle(
+    centerX: number,
+    centerY: number,
+    sashWidth: number,
+    sashHeight: number,
+    handleSide: number,
+    target: THREE.Group,
+    origin: THREE.Vector3Tuple
+  ) {
+    const place = (x: number, y: number, z: number): THREE.Vector3Tuple => [
+      x - origin[0],
+      y - origin[1],
+      z - origin[2]
+    ];
+    const plateW = clampNumber(trueSashRail * 0.17, 0.026, 0.056);
+    const plateH = clampNumber(sashHeight * 0.2, trueSashRail * 0.8, trueSashRail * 1.7);
+    const handleX = centerX + handleSide * (sashWidth / 2 - trueSashRail * 0.48);
+    const leverW = clampNumber(sashWidth * 0.13, trueSashRail * 0.62, trueSashRail * 1.25);
+    addBox([plateW, plateH, trueFaceDepth * 0.56], place(handleX, centerY, trueHardwareZ), metalMaterial, false, target);
+    addBox(
+      [leverW, plateW * 0.74, trueFaceDepth * 0.68],
+      place(handleX - handleSide * leverW * 0.42, centerY + plateH * 0.07, trueHardwareZ + trueFaceDepth * 0.2),
+      metalMaterial,
+      false,
+      target
+    );
+  }
+
+  function addTrueHinges(
+    hingeX: number,
+    centerY: number,
+    sashHeight: number,
+    hingeSide: number,
+    target: THREE.Group,
+    origin: THREE.Vector3Tuple
+  ) {
+    const plateW = clampNumber(trueSashRail * 0.16, 0.024, 0.058);
+    const plateH = clampNumber(sashHeight * 0.13, trueSashRail * 0.52, trueSashRail * 1.1);
+    const plateD = Math.max(trueFaceDepth * 0.52, 0.022);
+    const hingeOffsets = sashHeight > trueSashRail * 6 ? [-0.34, 0.34] : [0];
+    hingeOffsets.forEach((offset) => {
+      const y = centerY + offset * sashHeight;
+      addBox([plateW, plateH, plateD], [hingeX + hingeSide * plateW * 0.58, y, trueHardwareZ], metalMaterial, false);
+      addBox(
+        [plateW * 0.86, plateH * 0.84, plateD],
+        [hingeX - hingeSide * plateW * 0.58 - origin[0], y - origin[1], trueHardwareZ - origin[2]],
+        metalMaterial,
+        false,
+        target
+      );
+      addBox([plateW * 0.58, plateH * 1.04, plateD * 0.72], [hingeX, y, trueHardwareZ + plateD * 0.25], metalMaterial, false);
+    });
+  }
+
+  addTrueRing(0, 0, width, height, trueOuterRail, 0, trueMainDepth, profileMaterial);
+  addTrueRing(0, 0, width - trueOuterRail * 0.45, height - trueOuterRail * 0.45, trueFaceRail, trueFrameFrontZ, trueFaceDepth, innerMaterial);
+  addTrueGasket(0, 0, innerWidth + trueGasket * 2, innerHeight + trueGasket * 2, trueFrameFrontZ + trueFaceDepth * 0.52);
+
+  for (let column = 1; column < config.verticalDivisions; column += 1) {
+    const x = -innerWidth / 2 + paneWidth * column;
+    addBox([trueMullion, innerHeight, trueMainDepth * 0.92], [x, 0, 0], profileMaterial, false);
+    addBox([trueMullion * 0.52, innerHeight - trueOuterRail * 0.65, trueFaceDepth], [x, 0, trueFrameFrontZ + trueFaceDepth * 0.14], innerMaterial, false);
+  }
+
+  for (let row = 1; row < config.horizontalDivisions; row += 1) {
+    const y = innerHeight / 2 - paneHeight * row;
+    addBox([innerWidth, trueMullion, trueMainDepth * 0.92], [0, y, 0], profileMaterial, false);
+    addBox([innerWidth - trueOuterRail * 0.65, trueMullion * 0.52, trueFaceDepth], [0, y, trueFrameFrontZ + trueFaceDepth * 0.14], innerMaterial, false);
+  }
+
+  for (let row = 0; row < config.horizontalDivisions; row += 1) {
+    for (let column = 0; column < config.verticalDivisions; column += 1) {
+      const centerX = -innerWidth / 2 + paneWidth * (column + 0.5);
+      const centerY = innerHeight / 2 - paneHeight * (row + 0.5);
+      const cellWidth = Math.max(0.2, paneWidth - trueGap * 2);
+      const cellHeight = Math.max(0.2, paneHeight - trueGap * 2);
+      const active = column === activeColumn;
+
+      if (!active) {
+        const glassWidth = Math.max(0.08, cellWidth - trueFixedRail * 2.1);
+        const glassHeight = Math.max(0.08, cellHeight - trueFixedRail * 2.1);
+        const fixedZ = trueFrameFrontZ + trueFaceDepth * 0.22;
+        addTrueRing(centerX, centerY, cellWidth, cellHeight, trueFixedRail, fixedZ, trueFaceDepth * 0.92, innerMaterial);
+        addTrueProfileDetail(centerX, centerY, cellWidth, cellHeight, trueFixedRail, fixedZ + trueFaceDepth * 0.52);
+        addTrueGlass(centerX, centerY, glassWidth, glassHeight, fixedZ + trueFaceDepth * 0.86);
+        continue;
+      }
+
+      const sashWidth = Math.max(0.18, cellWidth - trueGap * 0.5);
+      const sashHeight = Math.max(0.18, cellHeight - trueGap * 0.5);
+      const handleSide = config.verticalDivisions > 1 && column === activeColumn ? -1 : 1;
+      const hingeSide = -handleSide;
+      const hingeX = centerX + hingeSide * (sashWidth / 2 - trueSashRail * 0.28);
+      const sashGroup = new THREE.Group();
+      let origin: THREE.Vector3Tuple = [0, 0, 0];
+
+      if (config.openingMode === "sliding") {
+        const slideDirection = centerX >= 0 ? -1 : 1;
+        sashGroup.position.set(slideDirection * sashWidth * 0.5 * easedOpening, 0, trueFaceDepth * 0.9 * easedOpening);
+      } else {
+        origin = [hingeX, centerY, trueSashZ];
+        sashGroup.position.set(hingeX, centerY, trueSashZ);
+        sashGroup.rotation.y = -hingeSide * THREE.MathUtils.degToRad(78) * easedOpening;
+        if (config.openingMode === "tilt" || config.openingMode === "tilt-turn") {
+          sashGroup.rotation.x = -THREE.MathUtils.degToRad(config.openingMode === "tilt" ? 11 : 4) * easedOpening;
+        }
+      }
+
+      addGroup(sashGroup);
+      addTrueGasket(centerX, centerY, sashWidth + trueGasket * 2.4, sashHeight + trueGasket * 2.4, trueFrameFrontZ + trueFaceDepth * 0.64);
+      addTrueSash(centerX, centerY, sashWidth, sashHeight, sashGroup, origin);
+
+      const meetingX = centerX + handleSide * (sashWidth / 2 - trueSashRail * 0.16);
+      addBox(
+        [Math.max(trueSashRail * 0.28, 0.035), sashHeight - trueSashRail * 0.55, trueFaceDepth * 0.74],
+        [meetingX - origin[0], centerY - origin[1], trueHardwareZ - trueFaceDepth * 0.32 - origin[2]],
+        innerMaterial,
+        false,
+        sashGroup
+      );
+
+      if (config.openingMode !== "sliding") {
+        addTrueHinges(hingeX, centerY, sashHeight, hingeSide, sashGroup, origin);
+      }
+      addTrueHandle(centerX, centerY, sashWidth, sashHeight, handleSide, sashGroup, origin);
+    }
+  }
+
+  if (config.openingMode === "sliding") {
+    addBox([width * 0.86, trueOuterRail * 0.16, trueFaceDepth * 0.8], [0, -height / 2 + trueOuterRail * 0.9, trueHardwareZ], metalMaterial, false);
+    addBox([width * 0.86, trueOuterRail * 0.16, trueFaceDepth * 0.8], [0, height / 2 - trueOuterRail * 0.9, trueHardwareZ], metalMaterial, false);
+  }
+
+  return;
+
   function addShadowRing(
     centerX: number,
     centerY: number,

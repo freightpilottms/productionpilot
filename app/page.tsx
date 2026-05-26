@@ -7,6 +7,7 @@ import {
   Bell,
   Boxes,
   CalendarClock,
+  Camera,
   Check,
   ChevronRight,
   ClipboardList,
@@ -2450,6 +2451,15 @@ export default function ProductionPilot() {
                         type="file"
                       />
                       <Upload size={15} />
+                    </label>
+                    <label className="mini-upload texture-camera" title={t("captureTexture")}>
+                      <input
+                        accept="image/*"
+                        capture="environment"
+                        onChange={(event) => attachStockTexture(item.id, event)}
+                        type="file"
+                      />
+                      <Camera size={15} />
                     </label>
                     {item.textureImage ? (
                       <IconButton onClick={() => removeStockTexture(item.id)} title={t("removeTexture")}>
